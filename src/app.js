@@ -131,13 +131,13 @@ float causticPattern(vec2 p, float t) {
   float b1 = sin(q.y * 1.11 + sin(q.x * 0.86 - t * 0.48) * 1.28);
   float c1 = sin((q.x + q.y) * 0.61 + sin((q.x - q.y) * 0.77 + t * 0.36));
   float field1 = a1 + b1 + c1 * 0.62;
-  float line1 = exp(-8.2 * field1 * field1);
+  float line1 = exp(-14.0 * field1 * field1);
 
   vec2 q2 = q * 1.57 + vec2(1.7, -2.3);
   float a2 = sin(q2.x + sin(q2.y * 0.82 - t * 0.43) * 1.15);
   float b2 = sin(q2.y + sin(q2.x * 0.79 + t * 0.51) * 1.22);
   float field2 = a2 + b2;
-  float line2 = exp(-10.0 * field2 * field2);
+  float line2 = exp(-17.0 * field2 * field2);
 
   return clamp(line1 * 0.72 + line2 * 0.36, 0.0, 1.0);
 }
@@ -188,10 +188,11 @@ void main() {
   p += flowWarp;
 
   vec2 fineSlope = vec2(0.0);
-  fineSlope += waveSlope(p, vec2(1.0, 0.24), 39.0, 0.78, 0.0105, uTime);
-  fineSlope += waveSlope(p, vec2(-0.37, 1.0), 54.0, -0.57, 0.0082, uTime);
-  fineSlope += waveSlope(p, vec2(0.71, 1.0), 73.0, 0.43, 0.0058, uTime);
-  fineSlope += waveSlope(p, vec2(-1.0, 0.58), 94.0, -0.34, 0.0038, uTime);
+  fineSlope += waveSlope(p, vec2(1.0, 0.24), 41.0, 0.78, 0.0066, uTime);
+  fineSlope += waveSlope(p, vec2(-0.37, 1.0), 57.0, -0.57, 0.0053, uTime);
+  fineSlope += waveSlope(p, vec2(0.71, 1.0), 79.0, 0.43, 0.0039, uTime);
+  fineSlope += waveSlope(p, vec2(-1.0, 0.58), 103.0, -0.34, 0.0026, uTime);
+  fineSlope += waveSlope(p, vec2(0.18, -1.0), 127.0, 0.29, 0.0015, uTime);
 
   // Reflection keeps the capillary field dominant, but lets only a small,
   // energy-gated portion of the interactive slope affect the normal. This restores
@@ -199,8 +200,8 @@ void main() {
   vec2 interactiveReflectSlope = simSlope * (0.18 + waveEnergy * 0.14);
   vec2 slope = fineSlope + interactiveReflectSlope;
   float slopeMagnitude = length(slope);
-  if (slopeMagnitude > 0.050) {
-    slope *= 0.050 / slopeMagnitude;
+  if (slopeMagnitude > 0.038) {
+    slope *= 0.038 / slopeMagnitude;
   }
   vec3 normal = normalize(vec3(-slope.x, slope.y, 1.0));
 
@@ -208,7 +209,7 @@ void main() {
     + 0.055 * sin(uv.x * 2.8 + 0.6)
     + 0.045 * sin(uv.y * 3.4 - 0.9);
 
-  vec2 fineOffset = vec2(-fineSlope.x, fineSlope.y) * 0.052;
+  vec2 fineOffset = vec2(-fineSlope.x, fineSlope.y) * 0.067;
   vec2 rippleOffset = vec2(-simSlope.x, simSlope.y) * 0.145;
   vec2 refractOffset = fineOffset + rippleOffset + flow * 0.00010;
   float refractMagnitude = length(refractOffset);
@@ -238,7 +239,7 @@ void main() {
   float causticActivity = smoothstep(0.004, 0.030, length(fineSlope + simSlope * 0.28));
   transmitted += vec3(0.92, 0.86, 0.64)
     * floorShimmer
-    * mix(0.032, 0.055, causticActivity);
+    * mix(0.018, 0.032, causticActivity);
 
   // Interaction highlight is energy-gated, not curvature-colored: a soft
   // transmission shimmer makes taps/flicks readable without drawing contour lines.
@@ -251,8 +252,10 @@ void main() {
 
   const float F0 = 0.0204;
   float fresnel = F0 + (1.0 - F0) * pow(1.0 - nDotV, 5.0);
-  fresnel += smoothstep(0.020, 0.10, length(slope)) * 0.055;
-  fresnel = clamp(fresnel, F0, 0.16);
+  // Keep Fresnel predominantly angle-driven. A large slope-based boost creates
+  // broad painted bands instead of the subtle reflection change of real water.
+  fresnel += smoothstep(0.018, 0.050, length(slope)) * 0.007;
+  fresnel = clamp(fresnel, F0, 0.13);
 
   vec3 reflectedDir = normalize(reflect(-viewDir, normal));
   float skyHeight = saturate(reflectedDir.z);
@@ -271,9 +274,9 @@ void main() {
   float sunAlignment = saturate(dot(reflectedDir, sunDir));
   float sunGlint = pow(sunAlignment, 760.0) * 0.54;
   sunGlint += pow(sunAlignment, 130.0) * 0.022;
-  sunGlint *= 0.40 + smoothstep(0.007, 0.052, length(slope)) * 0.98;
+  sunGlint *= 0.34 + smoothstep(0.004, 0.034, length(slope)) * 0.72;
 
-  float surfaceReflect = clamp(fresnel + 0.013, 0.032, 0.16);
+  float surfaceReflect = clamp(fresnel + 0.010, 0.028, 0.13);
   vec3 color = mix(transmitted, reflection, surfaceReflect);
   color += vec3(1.00, 0.96, 0.82) * sunGlint;
 
