@@ -603,7 +603,18 @@ const leafSprites = [
 ];
 
 const leaves = [];
+const interactionRipples = [];
 const leafCount = prefersReducedMotion ? 8 : 13;
+
+function addInteractionRipple(nx, ny, strength = 1) {
+  interactionRipples.push({
+    x: nx,
+    y: ny,
+    born: performance.now(),
+    strength: clamp(strength, 0.5, 1.6),
+  });
+  if (interactionRipples.length > 18) interactionRipples.shift();
+}
 
 function spawnLeaf(index, edge = false) {
   const leaf = leaves[index] || {};
@@ -625,6 +636,35 @@ function drawLeaves(time, dt) {
   const ctx = leafCtx;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
+
+  for (let i = interactionRipples.length - 1; i >= 0; i--) {
+    const ripple = interactionRipples[i];
+    const age = (time - ripple.born) / 1000;
+    if (age > 0.95) {
+      interactionRipples.splice(i, 1);
+      continue;
+    }
+
+    const t = clamp(age / 0.95, 0, 1);
+    const eased = 1 - Math.pow(1 - t, 2.2);
+    const radius = (10 + 72 * eased) * ripple.strength;
+    const alpha = Math.pow(1 - t, 1.8) * 0.26;
+
+    ctx.save();
+    ctx.translate(ripple.x * width, ripple.y * height);
+    ctx.strokeStyle = `rgba(220,255,248,${alpha})`;
+    ctx.lineWidth = 1.15 + (1 - t) * 0.8;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, TAU);
+    ctx.stroke();
+
+    ctx.strokeStyle = `rgba(112,205,196,${alpha * 0.55})`;
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.72, 0, TAU);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   for (let i = 0; i < leaves.length; i++) {
     const leaf = leaves[i];
@@ -701,10 +741,19 @@ function revealInteraction() {
 
 stage.addEventListener("pointerdown", (e) => {
   const p = pointerPosition(e);
-  pointers.set(e.pointerId, { ...p, t: performance.now() });
-  stage.setPointerCapture?.(e.pointerId);
+  const now = performance.now();
+  pointers.set(e.pointerId, { ...p, t: now, rippleT: now });
+  try {
+    stage.setPointerCapture?.(e.pointerId);
+  } catch {
+    // Some embedded mobile browsers reject capture even though pointer events work.
+  }
+  if (e.pointerType !== "mouse") e.preventDefault();
   stage.classList.add("is-stirring");
-  injectWave(p.x, p.y, -0.018, 0.034);
+
+  const touchLike = e.pointerType === "touch" || e.pointerType === "pen";
+  injectWave(p.x, p.y, touchLike ? -0.050 : -0.018, touchLike ? 0.040 : 0.034);
+  addInteractionRipple(p.x, p.y, touchLike ? 1.05 : 0.82);
   revealInteraction();
 });
 
@@ -719,10 +768,24 @@ stage.addEventListener("pointermove", (e) => {
     const vy = clamp((p.y - previous.y) / dt, -2.6, 2.6);
     const speed = Math.hypot(vx, vy);
 
-    injectFlow(p.x, p.y, vx, vy, 1.0);
-    injectWave(p.x, p.y, clamp(speed * 0.0032, 0.0020, 0.010), 0.030);
+    const touchLike = e.pointerType === "touch" || e.pointerType === "pen";
+    injectFlow(p.x, p.y, vx, vy, touchLike ? 1.55 : 1.0);
+    injectWave(
+      p.x,
+      p.y,
+      touchLike
+        ? clamp(speed * 0.010, 0.006, 0.032)
+        : clamp(speed * 0.0032, 0.0020, 0.010),
+      touchLike ? 0.036 : 0.030
+    );
 
-    pointers.set(e.pointerId, { ...p, t: now });
+    if (touchLike && now - (previous.rippleT || 0) > 58) {
+      addInteractionRipple(p.x, p.y, clamp(0.72 + speed * 0.10, 0.72, 1.2));
+      previous.rippleT = now;
+    }
+
+    if (touchLike) e.preventDefault();
+    pointers.set(e.pointerId, { ...p, t: now, rippleT: previous.rippleT || now });
     revealInteraction();
   } else if (e.pointerType === "mouse") {
     const hover = stage._hover || { ...p, t: now };
@@ -737,7 +800,7 @@ stage.addEventListener("pointermove", (e) => {
     }
     stage._hover = { ...p, t: now };
   }
-}, { passive: true });
+}, { passive: false });
 
 function endPointer(e) {
   pointers.delete(e.pointerId);
