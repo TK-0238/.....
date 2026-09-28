@@ -12,7 +12,7 @@ Interactive shallow-water scene where mouse/touch stirring creates believable su
 - iPhone + desktop interaction: 10
 - Stability / no visual or runtime errors: 5
 
-**PASS: 95/100 or higher, with every mandatory check below passing.**
+**PASS: 97/100 or higher, with every mandatory check below passing.**
 
 ## Mandatory checks
 - [x] No runtime JavaScript errors
@@ -51,7 +51,7 @@ Allowed: HTML/CSS/JS/WebGL shader changes, procedural textures, simulation tunin
 - [x] Broad simulation waves remain excluded from the reflection normal
 
 ## Current scored result — Loop 12
-**95/100 — SOFTWARE ACCEPTANCE PASSED**
+**95/100 — BELOW CURRENT 97/100 TARGET**
 
 - Water motion / wave propagation: **24/25**
 - Reflection / Fresnel / highlights: **18/20**
