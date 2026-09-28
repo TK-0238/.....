@@ -230,24 +230,32 @@ void main() {
   fresnel += smoothstep(0.020, 0.10, length(slope)) * 0.055;
   fresnel = clamp(fresnel, F0, 0.16);
 
-  float skyT = saturate(0.52 + normal.y * 0.70 - eyePlane.y * 0.16);
-  vec3 skyZenith = vec3(0.10, 0.20, 0.23);
-  vec3 skyHorizon = vec3(0.47, 0.60, 0.60);
-  vec3 reflection = mix(skyZenith, skyHorizon, skyT);
+  vec3 reflectedDir = normalize(reflect(-viewDir, normal));
+  float horizon = saturate(reflectedDir.z * 0.72 + 0.28);
+  vec3 skyZenith = vec3(0.085, 0.19, 0.23);
+  vec3 skyHorizon = vec3(0.48, 0.61, 0.62);
+  vec3 reflection = mix(skyHorizon, skyZenith, smoothstep(0.18, 0.95, horizon));
 
-  float broadCloud = 0.5 + 0.5 * sin(
-    p.x * 2.1
-    + sin(p.y * 1.7 + uTime * 0.035) * 0.75
-    - uTime * 0.018
+  vec2 skyPlane = reflectedDir.xy / max(0.26, reflectedDir.z + 0.34);
+  float cloudA = 0.5 + 0.5 * sin(
+    skyPlane.x * 3.8
+    + sin(skyPlane.y * 2.4 + uTime * 0.027) * 1.35
+    - uTime * 0.012
   );
-  reflection *= mix(0.91, 1.045, broadCloud * broadCloud);
+  float cloudB = 0.5 + 0.5 * sin(
+    skyPlane.y * 5.1
+    - sin(skyPlane.x * 2.9 - uTime * 0.019) * 1.10
+    + uTime * 0.010
+  );
+  float cloud = smoothstep(0.54, 0.93, cloudA * 0.58 + cloudB * 0.42);
+  reflection = mix(reflection, vec3(0.64, 0.70, 0.68), cloud * 0.24);
 
-  vec3 lightDir = normalize(vec3(-0.18, -0.24, 0.95));
+  vec3 lightDir = normalize(vec3(-0.13, -0.18, 0.975));
   vec3 halfDir = normalize(lightDir + viewDir);
   float nDotH = saturate(dot(normal, halfDir));
-  float sunGlint = pow(nDotH, 220.0) * 0.22;
-  sunGlint += pow(nDotH, 72.0) * 0.028;
-  sunGlint *= 0.45 + smoothstep(0.01, 0.08, length(slope)) * 0.8;
+  float sunGlint = pow(nDotH, 260.0) * 0.25;
+  sunGlint += pow(nDotH, 84.0) * 0.030;
+  sunGlint *= 0.38 + smoothstep(0.008, 0.065, length(slope)) * 0.95;
 
   float surfaceReflect = clamp(fresnel + 0.016, 0.038, 0.15);
   vec3 color = mix(transmitted, reflection, surfaceReflect);
@@ -548,8 +556,16 @@ function stepWave() {
           waveHeight[i + waveW] -
           waveHeight[i] * 4;
 
-        waveVelocity[i] = (waveVelocity[i] + lap * 0.108) * 0.9865;
-        waveHeight[i] = (waveHeight[i] + waveVelocity[i]) * 0.9988;
+        waveVelocity[i] = clamp(
+          (waveVelocity[i] + lap * 0.108) * 0.9865,
+          -0.028,
+          0.028
+        );
+        waveHeight[i] = clamp(
+          (waveHeight[i] + waveVelocity[i]) * 0.9988,
+          -0.085,
+          0.085
+        );
       }
     }
   }
@@ -592,8 +608,8 @@ function stepFlow(dt) {
       vx = mix(vx, avgX, 0.055);
       vy = mix(vy, avgY, 0.055);
 
-      flowNextX[i] = vx * 0.989;
-      flowNextY[i] = vy * 0.989;
+      flowNextX[i] = clamp(vx * 0.989, -3.2, 3.2);
+      flowNextY[i] = clamp(vy * 0.989, -3.2, 3.2);
     }
   }
 
@@ -760,6 +776,8 @@ function drawLeaves(time, dt) {
 
     leaf.vx += (targetVX - leaf.vx) * Math.min(1, dt * 1.9);
     leaf.vy += (targetVY - leaf.vy) * Math.min(1, dt * 1.9);
+    leaf.vx = clamp(leaf.vx, -0.34, 0.34);
+    leaf.vy = clamp(leaf.vy, -0.34, 0.34);
 
     const speed = Math.hypot(leaf.vx, leaf.vy);
     if (speed > 0.003) {
