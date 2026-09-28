@@ -124,6 +124,14 @@ vec2 waveSlope(vec2 p, vec2 dir, float freq, float speed, float amp, float t) {
   return dir * cos(phase) * amp;
 }
 
+float causticPattern(vec2 p, float t) {
+  vec2 q = p * 42.0;
+  float a = sin(q.x + sin(q.y * 1.23 + t * 0.72) * 1.18);
+  float b = sin(q.y * 0.91 + sin(q.x * 1.37 - t * 0.58) * 1.12);
+  float ridge = 1.0 - min(1.0, abs(a + b) * 0.56);
+  return pow(ridge, 7.0);
+}
+
 vec3 acesApprox(vec3 x) {
   return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
 }
@@ -148,13 +156,16 @@ void main() {
 
   vec2 flow = sampleFlow(simUv);
 
+  float signedCurvature = hl + hr + hu + hd - 4.0 * hc;
+  float waveFrontMask = smoothstep(0.0007, 0.0075, abs(signedCurvature));
+
   vec2 narrowSlope = vec2(hl - hr, hu - hd) * 6.0;
   vec2 broadSlope = vec2(hwl - hwr, hwu - hwd) * 1.8;
-  vec2 simSlope = (narrowSlope - broadSlope) * 0.50;
-  simSlope += flow * 0.0015;
+  vec2 simSlope = (narrowSlope - broadSlope) * 0.46 * waveFrontMask;
+  simSlope += flow * 0.0008;
   float simMagnitude = length(simSlope);
-  if (simMagnitude > 0.050) {
-    simSlope *= 0.050 / simMagnitude;
+  if (simMagnitude > 0.024) {
+    simSlope *= 0.024 / simMagnitude;
   }
 
   vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
@@ -180,20 +191,24 @@ void main() {
   bottom.g = texture(uBottom, refractedUv).g;
   bottom.b = texture(uBottom, clamp(refractedUv - normal.xy * 0.00012, 0.002, 0.998)).b;
 
-  vec3 extinction = vec3(0.34, 0.105, 0.050);
+  vec3 extinction = vec3(0.25, 0.080, 0.038);
   vec3 transmittance = exp(-extinction * bedDepth);
-  vec3 waterScatter = vec3(0.020, 0.090, 0.100);
+  vec3 waterScatter = vec3(0.016, 0.070, 0.080);
   vec3 transmitted = bottom * transmittance
     + waterScatter * (1.0 - transmittance) * 0.42;
 
-  float signedCurvature = hl + hr + hu + hd - 4.0 * hc;
   float curvature = abs(signedCurvature);
   float caustic = smoothstep(0.0018, 0.014, curvature);
-  caustic = pow(caustic, 2.8) * 0.026;
-  caustic += smoothstep(0.028, 0.075, length(fineSlope)) * 0.008;
-  transmitted += vec3(0.78, 0.88, 0.72) * caustic;
-  transmitted += vec3(0.22, 0.31, 0.29)
-    * clamp(signedCurvature * 5.0, -0.020, 0.020);
+  caustic = pow(caustic, 2.8) * 0.022;
+  caustic += smoothstep(0.028, 0.075, length(fineSlope)) * 0.006;
+  float floorShimmer = causticPattern(
+    (refractedUv - 0.5) * vec2(aspect, 1.0),
+    uTime
+  );
+  transmitted += vec3(0.76, 0.84, 0.68) * caustic;
+  transmitted += vec3(0.46, 0.52, 0.40) * floorShimmer * 0.020;
+  transmitted += vec3(0.20, 0.28, 0.27)
+    * clamp(signedCurvature * 4.0, -0.016, 0.016);
 
   vec2 eyePlane = (uv - 0.5) * vec2(aspect, 1.0);
   vec3 viewDir = normalize(vec3(-eyePlane.x * 0.58, -eyePlane.y * 0.58, 1.0));
@@ -205,8 +220,8 @@ void main() {
   fresnel = clamp(fresnel, F0, 0.16);
 
   float skyT = saturate(0.52 + normal.y * 0.70 - eyePlane.y * 0.16);
-  vec3 skyZenith = vec3(0.16, 0.31, 0.34);
-  vec3 skyHorizon = vec3(0.62, 0.72, 0.70);
+  vec3 skyZenith = vec3(0.10, 0.20, 0.23);
+  vec3 skyHorizon = vec3(0.47, 0.60, 0.60);
   vec3 reflection = mix(skyZenith, skyHorizon, skyT);
 
   float broadCloud = 0.5 + 0.5 * sin(
@@ -223,7 +238,7 @@ void main() {
   sunGlint += pow(nDotH, 72.0) * 0.028;
   sunGlint *= 0.45 + smoothstep(0.01, 0.08, length(slope)) * 0.8;
 
-  float surfaceReflect = clamp(fresnel + 0.010, 0.030, 0.15);
+  float surfaceReflect = clamp(fresnel + 0.016, 0.038, 0.15);
   vec3 color = mix(transmitted, reflection, surfaceReflect);
   color += vec3(1.00, 0.96, 0.82) * sunGlint;
 
