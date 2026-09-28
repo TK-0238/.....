@@ -238,6 +238,12 @@ void main() {
   vec3 transmitted = bottom * transmittance
     + waterScatter * (1.0 - transmittance) * 0.42;
 
+  // Add a restrained depth cue: slightly deeper regions lose a little warm light
+  // and gain subtle blue-green scatter without obscuring the pebbles.
+  float depthShade = smoothstep(0.46, 0.60, bedDepth);
+  transmitted *= mix(vec3(1.0), vec3(0.965, 0.982, 0.988), depthShade);
+  transmitted += vec3(0.003, 0.010, 0.012) * depthShade;
+
   float causticSlope = length(fineSlope + simSlope * 0.32);
   float caustic = smoothstep(0.020, 0.072, causticSlope) * 0.0085;
   float floorShimmer = causticPattern(
@@ -279,11 +285,18 @@ void main() {
   float horizonGlow = 1.0 - smoothstep(0.10, 0.38, skyHeight);
   reflection += vec3(0.11, 0.095, 0.070) * horizonGlow * 0.16;
 
+  // Slight roughness broadens the reflected environment at disturbed areas
+  // instead of only increasing brightness. This reads more like real shallow water.
+  float roughness = clamp(0.055 + length(slope) * 1.6, 0.055, 0.115);
+  vec3 roughSky = mix(skyHorizon, skyZenith, smoothstep(0.08, 0.92, skyHeight));
+  reflection = mix(reflection, roughSky, roughness * 0.24);
+
   vec3 sunDir = normalize(vec3(-0.085, -0.115, 0.989));
   float sunAlignment = saturate(dot(reflectedDir, sunDir));
-  float sunGlint = pow(sunAlignment, 760.0) * 0.54;
-  sunGlint += pow(sunAlignment, 130.0) * 0.022;
-  sunGlint *= 0.34 + smoothstep(0.004, 0.034, length(slope)) * 0.72;
+  float sunGlint = pow(sunAlignment, 760.0) * 0.50;
+  sunGlint += pow(sunAlignment, 140.0) * 0.025;
+  sunGlint += pow(sunAlignment, 34.0) * roughness * 0.010;
+  sunGlint *= 0.32 + smoothstep(0.004, 0.034, length(slope)) * 0.74;
 
   float surfaceReflect = clamp(fresnel + 0.010, 0.028, 0.13);
   vec3 color = mix(transmitted, reflection, surfaceReflect);
