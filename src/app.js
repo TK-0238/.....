@@ -174,13 +174,13 @@ void main() {
 
   vec2 narrowSlope = vec2(hl - hr, hu - hd) * 6.6;
   vec2 broadSlope = vec2(hwl - hwr, hwu - hwd) * 1.55;
-  vec2 simSlope = (narrowSlope - broadSlope) * 0.58 * waveFrontMask;
+  vec2 simSlope = (narrowSlope - broadSlope) * 0.78 * waveFrontMask;
   // Bulk flow primarily transports floating objects; only a restrained portion
   // perturbs the optical normal. This prevents long brush-like streaks after stirring.
   simSlope += flow * 0.00055;
   float simMagnitude = length(simSlope);
-  if (simMagnitude > 0.028) {
-    simSlope *= 0.028 / simMagnitude;
+  if (simMagnitude > 0.036) {
+    simSlope *= 0.036 / simMagnitude;
   }
 
   vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
@@ -199,11 +199,11 @@ void main() {
   // Reflection keeps the capillary field dominant, but lets only a small,
   // energy-gated portion of the interactive slope affect the normal. This restores
   // physically readable moving highlights without reintroducing broad contour bands.
-  vec2 interactiveReflectSlope = simSlope * (0.18 + waveEnergy * 0.14);
+  vec2 interactiveReflectSlope = simSlope * (0.24 + waveEnergy * 0.16);
   vec2 slope = fineSlope + interactiveReflectSlope;
   float slopeMagnitude = length(slope);
-  if (slopeMagnitude > 0.038) {
-    slope *= 0.038 / slopeMagnitude;
+  if (slopeMagnitude > 0.042) {
+    slope *= 0.042 / slopeMagnitude;
   }
   vec3 normal = normalize(vec3(-slope.x, slope.y, 1.0));
 
@@ -212,11 +212,11 @@ void main() {
     + 0.045 * sin(uv.y * 3.4 - 0.9);
 
   vec2 fineOffset = vec2(-fineSlope.x, fineSlope.y) * 0.067;
-  vec2 rippleOffset = vec2(-simSlope.x, simSlope.y) * 0.145;
+  vec2 rippleOffset = vec2(-simSlope.x, simSlope.y) * 0.185;
   vec2 refractOffset = fineOffset + rippleOffset + flow * 0.00010;
   float refractMagnitude = length(refractOffset);
-  if (refractMagnitude > 0.0082) {
-    refractOffset *= 0.0082 / refractMagnitude;
+  if (refractMagnitude > 0.0100) {
+    refractOffset *= 0.0100 / refractMagnitude;
   }
   vec2 refractedUv = clamp(uv + refractOffset, 0.002, 0.998);
 
@@ -246,7 +246,7 @@ void main() {
   // Interaction highlight is energy-gated, not curvature-colored: a soft
   // transmission shimmer makes taps/flicks readable without drawing contour lines.
   float interactionShimmer = waveEnergy * smoothstep(0.0035, 0.026, simMagnitude);
-  transmitted += vec3(0.56, 0.76, 0.82) * interactionShimmer * 0.072;
+  transmitted += vec3(0.56, 0.76, 0.82) * interactionShimmer * 0.105;
 
   vec2 eyePlane = (uv - 0.5) * vec2(aspect, 1.0);
   vec3 viewDir = normalize(vec3(-eyePlane.x * 0.58, -eyePlane.y * 0.58, 1.0));
@@ -893,8 +893,8 @@ function beginInteraction(id, x, y, pointerType = "touch") {
   const touchLike = pointerType === "touch" || pointerType === "pen";
   // Tap = short displacement pulse plus a slightly wider counter-pulse.
   // This gives a readable expanding ring immediately, instead of waiting for drag motion.
-  injectWave(x, y, touchLike ? -0.030 : -0.018, touchLike ? 0.034 : 0.030);
-  injectWave(x, y, touchLike ? 0.013 : 0.008, touchLike ? 0.064 : 0.055);
+  injectWave(x, y, touchLike ? -0.040 : -0.026, touchLike ? 0.034 : 0.030);
+  injectWave(x, y, touchLike ? 0.017 : 0.012, touchLike ? 0.064 : 0.055);
   revealInteraction();
 }
 
@@ -914,8 +914,8 @@ function moveInteraction(id, x, y, pointerType = "touch") {
     x,
     y,
     touchLike
-      ? clamp(speed * 0.0038, 0.0022, 0.0120)
-      : clamp(speed * 0.0031, 0.0018, 0.0095),
+      ? clamp(speed * 0.0050, 0.0028, 0.0150)
+      : clamp(speed * 0.0042, 0.0022, 0.0125),
     touchLike ? 0.042 : 0.034
   );
 
@@ -939,8 +939,8 @@ function endInteraction(id) {
       const tailX = clamp(previous.x + previous.vx * 0.022, 0, 1);
       const tailY = clamp(previous.y + previous.vy * 0.022, 0, 1);
       injectFlow(previous.x, previous.y, previous.vx, previous.vy, 1.10);
-      injectWave(previous.x, previous.y, clamp(flick * 0.0046, 0.0030, 0.0125), 0.040);
-      injectWave(tailX, tailY, clamp(-flick * 0.0024, -0.0065, -0.0018), 0.030);
+      injectWave(previous.x, previous.y, clamp(flick * 0.0055, 0.0035, 0.0150), 0.040);
+      injectWave(tailX, tailY, clamp(-flick * 0.0030, -0.0080, -0.0022), 0.030);
     }
   }
 
