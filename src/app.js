@@ -129,7 +129,8 @@ void main() {
 
   float microX = sin(uv.y * 58.0 + uTime * 0.62) * 0.00034;
   float microY = sin(uv.x * 49.0 - uTime * 0.54) * 0.00031;
-  vec2 distortion = clamp(grad * 0.0030, vec2(-0.0018), vec2(0.0018));
+  vec2 opticalSlope = grad * 0.55;
+  vec2 distortion = 0.0017 * opticalSlope / (vec2(1.0) + abs(opticalSlope));
   distortion += vec2(microX, microY);
 
   vec2 refractedUv = clamp(uv + distortion, 0.002, 0.998);
