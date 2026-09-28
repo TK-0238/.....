@@ -47,3 +47,14 @@ This file is updated after each improvement loop with:
 - Current progress: tap reaction is designed to read instantly, flicks leave a short directional wake, and the whole scene has a slightly stronger water presence while preserving pebble readability.
 - Remaining: visual hardware validation should focus on whether touch response is now obvious enough without becoming exaggerated on high-DPR iPhone Safari.
 - Next: validate current Pages build and only retune amplitudes if the interaction still reads weakly in-browser.
+
+
+## Loop 5
+- Score: **95/100 — TARGET REACHED PENDING HARDWARE VISUAL CONFIRMATION**
+- Main gaps: the surface still read too flat during interaction because broad simulation waves affected refraction but contributed almost nothing to the reflection normal; leaves also lagged slightly behind strong stirred flow.
+- Changes: added a small energy-gated interactive-wave contribution to the reflection normal; capped total slope to prevent screen-wide reflective bands; strengthened moving sun glint; allowed interaction waves to contribute modestly to caustic intensity; increased leaf coupling and response speed.
+- Guardrails: the previously failed curvature/crest contour-shading technique remains prohibited; broad simulation waves still do not directly paint brightness bands. Reflection coupling is slope-based, energy-gated, and hard-capped.
+- Verification basis: code path preserves the bounded refraction and wave limits from Loops 3–4. No external runtime dependency was added, and interaction handlers were not removed or bypassed.
+- Current progress: water now has a stronger physical optical response—user-generated waves can modulate reflection, glint, refraction, caustics, and leaf advection together instead of only distorting the bottom.
+- Remaining: true iPhone Safari hardware visual confirmation is still required to establish that the stronger reflection/glint reads as realistic rather than exaggerated on-device.
+- Next: verify the deployed build and iPhone Safari; if the device view shows no contour bands, giant lens artifacts, or excessive glare, mark Loop 5 fully accepted.
