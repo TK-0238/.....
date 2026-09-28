@@ -175,18 +175,19 @@ void main() {
   vec2 narrowSlope = vec2(hl - hr, hu - hd) * 6.6;
   vec2 broadSlope = vec2(hwl - hwr, hwu - hwd) * 1.55;
 
-  // Use the physical local height gradient as the primary interactive normal.
-  // The old narrow-minus-broad band-pass rejected smooth, realistic ripples after
-  // the solver became isotropic. Keep only a small band-pass term for crisp detail.
-  vec2 simSlope = narrowSlope * (0.30 + waveEnergy * 0.52);
-  simSlope += (narrowSlope - broadSlope) * 0.20 * waveFrontMask;
+  // Preserve the physical local gradient but concentrate its optical effect on
+  // the propagating front. A full smooth-gradient lens turns each disturbance into
+  // a giant circular magnifier; front weighting keeps a real ripple ring and wake.
+  float frontWeight = smoothstep(0.00016, 0.0028, abs(signedCurvature));
+  vec2 simSlope = narrowSlope * waveEnergy * (0.08 + frontWeight * 0.66);
+  simSlope += (narrowSlope - broadSlope) * 0.24 * frontWeight;
 
   // Bulk flow primarily transports floating objects; only a restrained portion
   // perturbs the optical normal. This prevents long brush-like streaks after stirring.
-  simSlope += flow * 0.00055;
+  simSlope += flow * 0.00045;
   float simMagnitude = length(simSlope);
-  if (simMagnitude > 0.052) {
-    simSlope *= 0.052 / simMagnitude;
+  if (simMagnitude > 0.040) {
+    simSlope *= 0.040 / simMagnitude;
   }
 
   vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
@@ -218,11 +219,11 @@ void main() {
     + 0.045 * sin(uv.y * 3.4 - 0.9);
 
   vec2 fineOffset = vec2(-fineSlope.x, fineSlope.y) * 0.067;
-  vec2 rippleOffset = vec2(-simSlope.x, simSlope.y) * 0.185;
+  vec2 rippleOffset = vec2(-simSlope.x, simSlope.y) * 0.170;
   vec2 refractOffset = fineOffset + rippleOffset + flow * 0.00010;
   float refractMagnitude = length(refractOffset);
-  if (refractMagnitude > 0.0100) {
-    refractOffset *= 0.0100 / refractMagnitude;
+  if (refractMagnitude > 0.0088) {
+    refractOffset *= 0.0088 / refractMagnitude;
   }
   vec2 refractedUv = clamp(uv + refractOffset, 0.002, 0.998);
 
@@ -252,7 +253,7 @@ void main() {
   // Interaction highlight is energy-gated, not curvature-colored: a soft
   // transmission shimmer makes taps/flicks readable without drawing contour lines.
   float interactionShimmer = waveEnergy * smoothstep(0.0035, 0.026, simMagnitude);
-  transmitted += vec3(0.56, 0.76, 0.82) * interactionShimmer * 0.105;
+  transmitted += vec3(0.56, 0.76, 0.82) * interactionShimmer * 0.082;
 
   vec2 eyePlane = (uv - 0.5) * vec2(aspect, 1.0);
   vec3 viewDir = normalize(vec3(-eyePlane.x * 0.58, -eyePlane.y * 0.58, 1.0));
