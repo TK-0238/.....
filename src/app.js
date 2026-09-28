@@ -103,12 +103,12 @@ void main() {
   float hd = texture(uWave, simUv + vec2(0.0, tx.y)).r;
 
   vec2 flow = texture(uFlow, simUv).rg;
-  vec2 grad = vec2(hl - hr, hu - hd) * 15.0;
-  grad += flow * 0.025;
+  vec2 grad = vec2(hl - hr, hu - hd) * 8.5;
+  grad += flow * 0.014;
 
   float microX = sin(uv.y * 58.0 + uTime * 0.62) * 0.0011;
   float microY = sin(uv.x * 49.0 - uTime * 0.54) * 0.0010;
-  vec2 distortion = clamp(grad * 0.026, vec2(-0.034), vec2(0.034));
+  vec2 distortion = clamp(grad * 0.018, vec2(-0.018), vec2(0.018));
   distortion += vec2(microX, microY);
 
   vec2 refractedUv = clamp(uv + distortion, 0.002, 0.998);
@@ -122,7 +122,7 @@ void main() {
   float caustic = smoothstep(-0.012, 0.042, curvature) * 0.24;
   caustic += pow(max(0.0, sin((uv.x + uv.y) * 110.0 + hc * 42.0 + uTime * 0.22)), 18.0) * 0.022;
 
-  vec3 normal = normalize(vec3(-grad.x, grad.y, 1.0));
+  vec3 normal = normalize(vec3(-grad.x * 0.46, grad.y * 0.46, 1.0));
   vec3 lightDir = normalize(vec3(-0.28, -0.42, 0.86));
   float sparkle = pow(max(dot(normal, lightDir), 0.0), 72.0) * 0.52;
 
@@ -671,7 +671,7 @@ stage.addEventListener("pointerdown", (e) => {
   pointers.set(e.pointerId, { ...p, t: performance.now() });
   stage.setPointerCapture?.(e.pointerId);
   stage.classList.add("is-stirring");
-  injectWave(p.x, p.y, -0.12, 0.05);
+  injectWave(p.x, p.y, -0.045, 0.045);
   revealInteraction();
 });
 
@@ -687,7 +687,7 @@ stage.addEventListener("pointermove", (e) => {
     const speed = Math.hypot(vx, vy);
 
     injectFlow(p.x, p.y, vx, vy, 1.0);
-    injectWave(p.x, p.y, clamp(speed * 0.025, 0.025, 0.085), 0.043);
+    injectWave(p.x, p.y, clamp(speed * 0.010, 0.006, 0.028), 0.038);
 
     pointers.set(e.pointerId, { ...p, t: now });
     revealInteraction();
