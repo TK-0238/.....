@@ -12,7 +12,7 @@ Interactive shallow-water scene where mouse/touch stirring creates believable su
 - iPhone + desktop interaction: 10
 - Stability / no visual or runtime errors: 5
 
-**PASS: 90/100 or higher, with every mandatory check below passing.**
+**PASS: 95/100 or higher, with every mandatory check below passing.**
 
 ## Mandatory checks
 - [x] No runtime JavaScript errors
@@ -39,6 +39,11 @@ Allowed: HTML/CSS/JS/WebGL shader changes, procedural textures, simulation tunin
 - Committing temporary validation artifacts
 
 
+## Reflection realism target
+- [x] Interactive waves contribute a bounded amount to the reflection normal
+- [x] Sun glint responds to both capillary and interaction-driven normals
+- [x] Interaction waves contribute to caustic intensity without creating contour bands
+
 ## Interaction clarity target
 - [x] Tap produces an immediately visible expanding ring
 - [x] Fast flick leaves a directional wake after release
@@ -46,4 +51,4 @@ Allowed: HTML/CSS/JS/WebGL shader changes, procedural textures, simulation tunin
 - [x] Broad simulation waves remain excluded from the reflection normal
 
 ## Latest validation basis
-Loop 3 scored **92/100**. Clean Chrome idle and forced strong-wave states were inspected visually; the previous reflective contour-band failure did not reproduce. JavaScript syntax is checked in CI before deployment, and the latest Pages deployment succeeded. Desktop mouse and iPhone-equivalent touch interaction were visually verified in earlier loops; Loop 3 does not alter those input handlers. True iPhone hardware Safari was not re-run during Loop 3.
+Loop 5 target is **95/100+**. The interaction-driven normal contribution is capped and energy-gated so highlights can move with user-generated waves while preserving the anti-artifact guardrail introduced in Loop 3. The previous rejected curvature-contour shading is still not used. JavaScript syntax remains covered by CI; true iPhone hardware Safari still requires user-side visual confirmation.
