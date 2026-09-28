@@ -125,19 +125,19 @@ vec2 waveSlope(vec2 p, vec2 dir, float freq, float speed, float amp, float t) {
 }
 
 float causticPattern(vec2 p, float t) {
-  vec2 q = p * 23.0;
+  vec2 q = p * 34.0;
 
   float a1 = sin(q.x + sin(q.y * 0.73 + t * 0.62) * 1.35);
   float b1 = sin(q.y * 1.11 + sin(q.x * 0.86 - t * 0.48) * 1.28);
   float c1 = sin((q.x + q.y) * 0.61 + sin((q.x - q.y) * 0.77 + t * 0.36));
   float field1 = a1 + b1 + c1 * 0.62;
-  float line1 = exp(-5.8 * field1 * field1);
+  float line1 = exp(-8.2 * field1 * field1);
 
   vec2 q2 = q * 1.57 + vec2(1.7, -2.3);
   float a2 = sin(q2.x + sin(q2.y * 0.82 - t * 0.43) * 1.15);
   float b2 = sin(q2.y + sin(q2.x * 0.79 + t * 0.51) * 1.22);
   float field2 = a2 + b2;
-  float line2 = exp(-7.4 * field2 * field2);
+  float line2 = exp(-10.0 * field2 * field2);
 
   return clamp(line1 * 0.72 + line2 * 0.36, 0.0, 1.0);
 }
@@ -185,7 +185,7 @@ void main() {
   fineSlope += waveSlope(p, vec2(0.71, 1.0), 73.0, 0.43, 0.0058, uTime);
   fineSlope += waveSlope(p, vec2(-1.0, 0.58), 94.0, -0.34, 0.0038, uTime);
 
-  vec2 slope = simSlope + fineSlope;
+  vec2 slope = fineSlope + simSlope * 0.16;
   vec3 normal = normalize(vec3(-slope.x, slope.y, 1.0));
 
   float bedDepth = 0.50
@@ -193,7 +193,7 @@ void main() {
     + 0.045 * sin(uv.y * 3.4 - 0.9);
 
   vec2 fineOffset = vec2(-fineSlope.x, fineSlope.y) * 0.052;
-  vec2 rippleOffset = vec2(-simSlope.x, simSlope.y) * 0.018;
+  vec2 rippleOffset = vec2(-simSlope.x, simSlope.y) * 0.008;
   vec2 refractOffset = fineOffset + rippleOffset + flow * 0.00008;
   vec2 refractedUv = clamp(uv + refractOffset, 0.002, 0.998);
 
@@ -217,7 +217,7 @@ void main() {
     uTime
   );
   transmitted += vec3(0.82, 0.88, 0.70) * caustic;
-  transmitted += vec3(0.92, 0.86, 0.64) * floorShimmer * 0.105;
+  transmitted += vec3(0.92, 0.86, 0.64) * floorShimmer * 0.078;
   transmitted += vec3(0.20, 0.28, 0.27)
     * clamp(signedCurvature * 4.0, -0.016, 0.016);
 
