@@ -70,7 +70,7 @@ void main() {
 }
 `;
 
-const fragmentSource = \`#version 300 es
+const fragmentSource = `#version 300 es
 precision highp float;
 
 in vec2 vUv;
@@ -227,7 +227,7 @@ void main() {
 
   outColor = vec4(color, 1.0);
 }
-\`;
+`;
 
 const program = makeProgram(vertexSource, fragmentSource);
 const vao = gl.createVertexArray();
