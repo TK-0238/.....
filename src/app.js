@@ -166,7 +166,7 @@ void main() {
     + 0.055 * sin(uv.x * 2.8 + 0.6)
     + 0.045 * sin(uv.y * 3.4 - 0.9);
 
-  vec2 refractOffset = normal.xy * (0.020 + bedDepth * 0.004);
+  vec2 refractOffset = normal.xy * (0.044 + bedDepth * 0.008);
   refractOffset += flow * 0.00030;
   vec2 refractedUv = clamp(uv + refractOffset, 0.002, 0.998);
 
@@ -175,16 +175,16 @@ void main() {
   bottom.g = texture(uBottom, refractedUv).g;
   bottom.b = texture(uBottom, clamp(refractedUv - normal.xy * 0.00012, 0.002, 0.998)).b;
 
-  vec3 extinction = vec3(0.50, 0.17, 0.085);
+  vec3 extinction = vec3(0.34, 0.105, 0.050);
   vec3 transmittance = exp(-extinction * bedDepth);
-  vec3 waterScatter = vec3(0.035, 0.145, 0.155);
+  vec3 waterScatter = vec3(0.020, 0.090, 0.100);
   vec3 transmitted = bottom * transmittance
-    + waterScatter * (1.0 - transmittance) * 0.55;
+    + waterScatter * (1.0 - transmittance) * 0.42;
 
   float curvature = abs(hl + hr + hu + hd - 4.0 * hc);
   float caustic = smoothstep(0.0014, 0.013, curvature);
-  caustic = pow(caustic, 2.3) * 0.075;
-  caustic += smoothstep(0.026, 0.075, length(fineSlope)) * 0.018;
+  caustic = pow(caustic, 2.7) * 0.034;
+  caustic += smoothstep(0.026, 0.075, length(fineSlope)) * 0.010;
   transmitted += vec3(0.78, 0.88, 0.72) * caustic;
 
   vec2 eyePlane = (uv - 0.5) * vec2(aspect, 1.0);
@@ -193,7 +193,7 @@ void main() {
 
   const float F0 = 0.0204;
   float fresnel = F0 + (1.0 - F0) * pow(1.0 - nDotV, 5.0);
-  fresnel += smoothstep(0.025, 0.12, length(slope)) * 0.045;
+  fresnel += smoothstep(0.020, 0.10, length(slope)) * 0.055;
   fresnel = clamp(fresnel, F0, 0.16);
 
   float skyT = saturate(0.52 + normal.y * 0.70 - eyePlane.y * 0.16);
@@ -211,8 +211,8 @@ void main() {
   vec3 lightDir = normalize(vec3(-0.18, -0.24, 0.95));
   vec3 halfDir = normalize(lightDir + viewDir);
   float nDotH = saturate(dot(normal, halfDir));
-  float sunGlint = pow(nDotH, 220.0) * 1.15;
-  sunGlint += pow(nDotH, 72.0) * 0.055;
+  float sunGlint = pow(nDotH, 220.0) * 0.22;
+  sunGlint += pow(nDotH, 72.0) * 0.028;
   sunGlint *= 0.45 + smoothstep(0.01, 0.08, length(slope)) * 0.8;
 
   vec3 color = mix(transmitted, reflection, fresnel);
@@ -222,8 +222,7 @@ void main() {
   float vignette = 1.0 - smoothstep(0.34, 1.02, edgeDistance);
   color *= mix(0.91, 1.0, vignette);
 
-  color = acesApprox(color * 1.08);
-  color = pow(color, vec3(0.96));
+  color = pow(clamp(color * 0.98, 0.0, 1.0), vec3(0.94));
 
   outColor = vec4(color, 1.0);
 }
@@ -263,19 +262,20 @@ function makePebbleTexture() {
   const ctx = c.getContext("2d");
 
   const bg = ctx.createLinearGradient(0, 0, size, size);
-  bg.addColorStop(0, "#756f5d");
-  bg.addColorStop(0.45, "#666657");
-  bg.addColorStop(1, "#4b5550");
+  bg.addColorStop(0, "#777466");
+  bg.addColorStop(0.48, "#66685d");
+  bg.addColorStop(1, "#505b57");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, size, size);
 
-  for (let i = 0; i < 4200; i++) {
+  // Fine sand and mineral grains.
+  for (let i = 0; i < 11000; i++) {
     const x = random() * size;
     const y = random() * size;
-    const r = 0.35 + random() * 1.5;
-    const lum = 70 + Math.floor(random() * 70);
-    ctx.globalAlpha = 0.055 + random() * 0.12;
-    ctx.fillStyle = `rgb(${lum}, ${lum - 3}, ${Math.max(45, lum - 11)})`;
+    const r = 0.25 + random() * 1.1;
+    const v = 74 + Math.floor(random() * 72);
+    ctx.globalAlpha = 0.045 + random() * 0.11;
+    ctx.fillStyle = \`rgb(\${v}, \${Math.max(45, v - 4)}, \${Math.max(42, v - 12)})\`;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, TAU);
     ctx.fill();
@@ -283,53 +283,93 @@ function makePebbleTexture() {
   ctx.globalAlpha = 1;
 
   const palette = [
-    ["#87938a", "#53625d", "#303c39"],
-    ["#a8967a", "#77654e", "#493e31"],
-    ["#8e8b83", "#66645f", "#3e403d"],
-    ["#72857f", "#4e6762", "#2e4642"],
-    ["#9a8069", "#6b5646", "#42372f"],
-    ["#777c83", "#515a62", "#303840"],
+    ["#9b9a8b", "#666a62", "#3d4542"],
+    ["#ad987b", "#776753", "#493f35"],
+    ["#87908b", "#596763", "#34433f"],
+    ["#7f8f91", "#52666a", "#314449"],
+    ["#a3866b", "#6b5849", "#423a33"],
+    ["#81848a", "#585e66", "#373e46"],
   ];
 
-  for (let i = 0; i < 520; i++) {
+  for (let i = 0; i < 650; i++) {
     const x = random() * size;
     const y = random() * size;
-    const rx = 6 + random() * 18;
-    const ry = rx * (0.48 + random() * 0.52);
+    const rx = 4.5 + random() * 18;
+    const ry = rx * (0.52 + random() * 0.42);
     const rot = random() * TAU;
-    const p = palette[Math.floor(random() * palette.length)];
+    const colors = palette[Math.floor(random() * palette.length)];
+    const count = 9;
+    const pts = [];
+
+    for (let k = 0; k < count; k++) {
+      const a = (k / count) * TAU;
+      const wobble = 0.82 + random() * 0.25;
+      pts.push([
+        Math.cos(a) * rx * wobble,
+        Math.sin(a) * ry * (0.90 + random() * 0.18),
+      ]);
+    }
 
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(rot);
 
-    ctx.shadowColor = "rgba(12, 23, 22, 0.34)";
-    ctx.shadowBlur = 7;
-    ctx.shadowOffsetX = 2.5;
-    ctx.shadowOffsetY = 4;
-
-    const g = ctx.createRadialGradient(-rx * 0.28, -ry * 0.42, 1, 0, 0, rx * 1.1);
-    g.addColorStop(0, p[0]);
-    g.addColorStop(0.5, p[1]);
-    g.addColorStop(1, p[2]);
-    ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.ellipse(0, 0, rx, ry, 0, 0, TAU);
+    for (let k = 0; k < count; k++) {
+      const p0 = pts[k];
+      const p1 = pts[(k + 1) % count];
+      const mx = (p0[0] + p1[0]) * 0.5;
+      const my = (p0[1] + p1[1]) * 0.5;
+      if (k === 0) ctx.moveTo(mx, my);
+      ctx.quadraticCurveTo(p1[0], p1[1], mx, my);
+    }
+    ctx.closePath();
+
+    ctx.shadowColor = "rgba(8, 18, 18, 0.24)";
+    ctx.shadowBlur = 2.6;
+    ctx.shadowOffsetX = 1.2;
+    ctx.shadowOffsetY = 2.1;
+
+    const g = ctx.createRadialGradient(-rx * 0.32, -ry * 0.44, 0.5, 0, 0, rx * 1.05);
+    g.addColorStop(0, colors[0]);
+    g.addColorStop(0.50, colors[1]);
+    g.addColorStop(1, colors[2]);
+    ctx.fillStyle = g;
     ctx.fill();
 
     ctx.shadowColor = "transparent";
-    ctx.globalAlpha = 0.26;
-    ctx.strokeStyle = "#d9ded3";
-    ctx.lineWidth = Math.max(0.6, rx * 0.035);
-    ctx.beginPath();
-    ctx.ellipse(-rx * 0.12, -ry * 0.16, rx * 0.68, ry * 0.58, 0, Math.PI * 1.06, Math.PI * 1.67);
+    ctx.strokeStyle = "rgba(236, 239, 224, 0.11)";
+    ctx.lineWidth = 0.7;
     ctx.stroke();
+
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = "#f0ead4";
+    const flecks = 1 + Math.floor(random() * 4);
+    for (let k = 0; k < flecks; k++) {
+      ctx.beginPath();
+      ctx.arc(
+        (random() - 0.5) * rx * 0.9,
+        (random() - 0.5) * ry * 0.75,
+        0.35 + random() * 0.8,
+        0,
+        TAU
+      );
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
     ctx.restore();
   }
 
-  const shade = ctx.createRadialGradient(size * 0.52, size * 0.35, size * 0.05, size * 0.5, size * 0.5, size * 0.74);
-  shade.addColorStop(0, "rgba(255,255,255,0.08)");
-  shade.addColorStop(1, "rgba(0,30,31,0.28)");
+  const shade = ctx.createRadialGradient(
+    size * 0.48,
+    size * 0.38,
+    size * 0.08,
+    size * 0.5,
+    size * 0.5,
+    size * 0.78
+  );
+  shade.addColorStop(0, "rgba(255,255,245,0.035)");
+  shade.addColorStop(1, "rgba(3,28,28,0.20)");
   ctx.fillStyle = shade;
   ctx.fillRect(0, 0, size, size);
 
@@ -387,9 +427,6 @@ function rebuildSimulation() {
   waveTexture = makeFloatTexture(gl.R32F, gl.RED, waveW, waveH, waveHeight);
   flowTexture = makeFloatTexture(gl.RG32F, gl.RG, flowW, flowH, flowPacked);
 
-  for (let i = 0; i < 5; i++) {
-    injectWave(0.2 + random() * 0.6, 0.2 + random() * 0.6, (random() - 0.5) * 0.008, 0.028);
-  }
 }
 
 function resize() {
@@ -476,7 +513,7 @@ function stepWave() {
           waveHeight[i + waveW] -
           waveHeight[i] * 4;
 
-        waveVelocity[i] = (waveVelocity[i] + lap * 0.108) * 0.9895;
+        waveVelocity[i] = (waveVelocity[i] + lap * 0.108) * 0.9865;
         waveHeight[i] = (waveHeight[i] + waveVelocity[i]) * 0.9988;
       }
     }
@@ -768,7 +805,7 @@ function beginInteraction(id, x, y, pointerType = "touch") {
   stage.classList.add("is-stirring");
 
   const touchLike = pointerType === "touch" || pointerType === "pen";
-  injectWave(x, y, touchLike ? -0.052 : -0.018, touchLike ? 0.042 : 0.034);
+  injectWave(x, y, touchLike ? -0.024 : -0.013, touchLike ? 0.034 : 0.030);
   revealInteraction();
 }
 
@@ -788,7 +825,7 @@ function moveInteraction(id, x, y, pointerType = "touch") {
     x,
     y,
     touchLike
-      ? clamp(speed * 0.011, 0.007, 0.036)
+      ? clamp(speed * 0.0055, 0.0030, 0.015)
       : clamp(speed * 0.0032, 0.0020, 0.010),
     touchLike ? 0.038 : 0.030
   );
