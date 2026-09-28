@@ -148,9 +148,14 @@ void main() {
 
   vec2 flow = sampleFlow(simUv);
 
-  vec2 simSlope = vec2(hl - hr, hu - hd) * 9.0;
-  simSlope += vec2(hwl - hwr, hwu - hwd) * 1.6;
-  simSlope += flow * 0.006;
+  vec2 narrowSlope = vec2(hl - hr, hu - hd) * 6.0;
+  vec2 broadSlope = vec2(hwl - hwr, hwu - hwd) * 1.8;
+  vec2 simSlope = (narrowSlope - broadSlope) * 0.50;
+  simSlope += flow * 0.0015;
+  float simMagnitude = length(simSlope);
+  if (simMagnitude > 0.050) {
+    simSlope *= 0.050 / simMagnitude;
+  }
 
   vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
   vec2 fineSlope = vec2(0.0);
@@ -166,8 +171,8 @@ void main() {
     + 0.055 * sin(uv.x * 2.8 + 0.6)
     + 0.045 * sin(uv.y * 3.4 - 0.9);
 
-  vec2 refractOffset = normal.xy * (0.044 + bedDepth * 0.008);
-  refractOffset += flow * 0.00030;
+  vec2 refractOffset = normal.xy * (0.027 + bedDepth * 0.004);
+  refractOffset += flow * 0.00012;
   vec2 refractedUv = clamp(uv + refractOffset, 0.002, 0.998);
 
   vec3 bottom;
@@ -181,11 +186,14 @@ void main() {
   vec3 transmitted = bottom * transmittance
     + waterScatter * (1.0 - transmittance) * 0.42;
 
-  float curvature = abs(hl + hr + hu + hd - 4.0 * hc);
-  float caustic = smoothstep(0.0014, 0.013, curvature);
-  caustic = pow(caustic, 2.7) * 0.034;
-  caustic += smoothstep(0.026, 0.075, length(fineSlope)) * 0.010;
+  float signedCurvature = hl + hr + hu + hd - 4.0 * hc;
+  float curvature = abs(signedCurvature);
+  float caustic = smoothstep(0.0018, 0.014, curvature);
+  caustic = pow(caustic, 2.8) * 0.026;
+  caustic += smoothstep(0.028, 0.075, length(fineSlope)) * 0.008;
   transmitted += vec3(0.78, 0.88, 0.72) * caustic;
+  transmitted += vec3(0.22, 0.31, 0.29)
+    * clamp(signedCurvature * 5.0, -0.020, 0.020);
 
   vec2 eyePlane = (uv - 0.5) * vec2(aspect, 1.0);
   vec3 viewDir = normalize(vec3(-eyePlane.x * 0.58, -eyePlane.y * 0.58, 1.0));
@@ -215,7 +223,8 @@ void main() {
   sunGlint += pow(nDotH, 72.0) * 0.028;
   sunGlint *= 0.45 + smoothstep(0.01, 0.08, length(slope)) * 0.8;
 
-  vec3 color = mix(transmitted, reflection, fresnel);
+  float surfaceReflect = clamp(fresnel + 0.010, 0.030, 0.15);
+  vec3 color = mix(transmitted, reflection, surfaceReflect);
   color += vec3(1.00, 0.96, 0.82) * sunGlint;
 
   float edgeDistance = length((uv - 0.5) * vec2(aspect * 0.82, 1.0));
@@ -805,7 +814,7 @@ function beginInteraction(id, x, y, pointerType = "touch") {
   stage.classList.add("is-stirring");
 
   const touchLike = pointerType === "touch" || pointerType === "pen";
-  injectWave(x, y, touchLike ? -0.024 : -0.013, touchLike ? 0.034 : 0.030);
+  injectWave(x, y, touchLike ? -0.016 : -0.009, touchLike ? 0.030 : 0.027);
   revealInteraction();
 }
 
@@ -825,7 +834,7 @@ function moveInteraction(id, x, y, pointerType = "touch") {
     x,
     y,
     touchLike
-      ? clamp(speed * 0.0055, 0.0030, 0.015)
+      ? clamp(speed * 0.0032, 0.0018, 0.0090)
       : clamp(speed * 0.0032, 0.0020, 0.010),
     touchLike ? 0.038 : 0.030
   );
