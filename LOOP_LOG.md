@@ -17,3 +17,12 @@ This file is updated after each improvement loop with:
 - Verification: desktop idle/stirred + iPhone-equivalent touch checked visually; JS syntax passed; no shader/page errors; previous giant dark artifact did not reproduce.
 - Remaining: procedural cloud reflection creates woodgrain/topographic lines.
 - Next: simplify environment reflection and preserve only physically plausible normal-driven variation.
+
+
+## Loop 2
+- Score: **89/100**
+- Main gap: moving cloud reflection produced woodgrain/topographic artifacts.
+- Changes: removed procedural cloud reflection; replaced it with reflected-vector sky gradient + sun reflection; increased interaction contribution slightly.
+- Verification: desktop idle/stirred and iPhone-equivalent touch visually checked; syntax passed; no runtime errors.
+- Remaining: after aggressive continuous stirring, simulation wave bands are still too visible across a large area.
+- Next: decouple simulation waves from reflection, keep them primarily in local refraction, and add only narrow crest sheen.
