@@ -37,3 +37,13 @@ This file is updated after each improvement loop with:
 - Current progress: acceptance threshold exceeded; current implementation keeps reflection stable while leaving interaction waves visible through local refraction and flow-driven leaf motion.
 - Remaining: true hardware Safari validation was not re-run in this loop; no code path specific to iOS input was changed.
 - Next: acceptance target reached. Avoid adding curvature/crest contour shading again unless a new implementation can be visually proven artifact-free.
+
+
+## Loop 4
+- Score: **94/100 — PASS**
+- Main gap: the prior optical cleanup kept the surface stable, but tap and fast flick feedback became too subtle, especially on touch.
+- Changes: tap now injects a compact displacement pulse plus a wider counter-pulse for an immediately readable expanding ring; drag/flick injection is stronger; release adds a directional trailing wake; interactive refraction was raised from 0.105 to 0.145 with a bounded maximum of 0.0082; flow contribution and base reflection were increased slightly; a soft energy-gated transmission shimmer was added without restoring curvature contour shading.
+- Guardrails: reflection normal still excludes the broad simulation wave, so the previously rejected screen-wide contour-band failure mode remains blocked. Interaction shimmer is gated by wave energy and slope magnitude rather than directly coloring curvature.
+- Current progress: tap reaction is designed to read instantly, flicks leave a short directional wake, and the whole scene has a slightly stronger water presence while preserving pebble readability.
+- Remaining: visual hardware validation should focus on whether touch response is now obvious enough without becoming exaggerated on high-DPR iPhone Safari.
+- Next: validate current Pages build and only retune amplitudes if the interaction still reads weakly in-browser.
