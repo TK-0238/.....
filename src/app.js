@@ -103,20 +103,20 @@ void main() {
   float hd = texture(uWave, simUv + vec2(0.0, tx.y)).r;
 
   vec2 flow = texture(uFlow, simUv).rg;
-  vec2 grad = vec2(hl - hr, hu - hd) * 8.5;
+  vec2 grad = vec2(hl - hr, hu - hd) * 6.4;
   grad += flow * 0.014;
 
   float microX = sin(uv.y * 58.0 + uTime * 0.62) * 0.0011;
   float microY = sin(uv.x * 49.0 - uTime * 0.54) * 0.0010;
-  vec2 distortion = clamp(grad * 0.015, vec2(-0.012), vec2(0.012));
+  vec2 distortion = clamp(grad * 0.0065, vec2(-0.0045), vec2(0.0045));
   distortion += vec2(microX, microY);
 
   vec2 refractedUv = clamp(uv + distortion, 0.002, 0.998);
 
   vec3 bottom;
-  bottom.r = texture(uBottom, clamp(uv + distortion * 1.09, 0.002, 0.998)).r;
+  bottom.r = texture(uBottom, clamp(uv + distortion * 1.035, 0.002, 0.998)).r;
   bottom.g = texture(uBottom, refractedUv).g;
-  bottom.b = texture(uBottom, clamp(uv + distortion * 0.91, 0.002, 0.998)).b;
+  bottom.b = texture(uBottom, clamp(uv + distortion * 0.965, 0.002, 0.998)).b;
 
   float curvature = (hl + hr + hu + hd - 4.0 * hc);
   float caustic = smoothstep(-0.012, 0.042, curvature) * 0.14;
@@ -131,7 +131,7 @@ void main() {
   vec3 color = mix(bottom, waterTint, depthMix);
   color += vec3(0.46, 0.78, 0.69) * caustic;
 
-  float fresnel = 0.022 + smoothstep(0.10, 1.35, length(grad)) * 0.028;
+  float fresnel = 0.024;
   vec3 sky = mix(vec3(0.08, 0.22, 0.24), vec3(0.50, 0.72, 0.70), smoothstep(0.0, 1.0, 1.0 - uv.y));
   color = mix(color, sky, fresnel);
   color += vec3(0.72, 0.95, 0.90) * sparkle;
