@@ -130,8 +130,10 @@ void main() {
   float hwd = sampleWave(simUv + vec2(0.0, wide.y));
 
   vec2 flow = sampleFlow(simUv);
-  vec2 grad = vec2(hwl - hwr, hwu - hwd) * 1.8;
-  grad += flow * 0.010;
+  vec2 narrowGrad = vec2(hl - hr, hu - hd) * 6.4;
+  vec2 wideGrad = vec2(hwl - hwr, hwu - hwd) * 1.8;
+  vec2 grad = (narrowGrad - wideGrad) * 0.52;
+  grad += flow * 0.0025;
 
   float microX = sin(uv.y * 58.0 + uTime * 0.62) * 0.00034;
   float microY = sin(uv.x * 49.0 - uTime * 0.54) * 0.00031;
