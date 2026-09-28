@@ -260,14 +260,6 @@ void main() {
   vec3 color = mix(transmitted, reflection, surfaceReflect);
   color += vec3(1.00, 0.96, 0.82) * sunGlint;
 
-  // A narrow, shader-derived crest sheen ties the interaction wave back to the
-  // surface without drawing fake rings on top of the scene.
-  float curvatureAbs = abs(signedCurvature);
-  float crestSheen =
-    smoothstep(0.0016, 0.0058, curvatureAbs) *
-    (1.0 - smoothstep(0.010, 0.020, curvatureAbs));
-  color += vec3(0.72, 0.88, 0.90) * crestSheen * 0.032;
-
   float edgeDistance = length((uv - 0.5) * vec2(aspect * 0.82, 1.0));
   float vignette = 1.0 - smoothstep(0.34, 1.02, edgeDistance);
   color *= mix(0.91, 1.0, vignette);
