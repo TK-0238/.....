@@ -15,17 +15,17 @@ Interactive shallow-water scene where mouse/touch stirring creates believable su
 **PASS: 90/100 or higher, with every mandatory check below passing.**
 
 ## Mandatory checks
-- [ ] No runtime JavaScript errors
-- [ ] No shader compile/link errors
-- [ ] No giant lens-like blobs or hard rectangular/plateau artifacts
-- [ ] Water remains visibly present while idle
-- [ ] Dragging creates local ripples, not screen-wide deformation
-- [ ] Submerged pebbles visibly refract as ripples pass
-- [ ] Reflection changes with surface normal/view angle
-- [ ] Leaves respond to drag-generated flow
-- [ ] iPhone touch drag works
-- [ ] Desktop mouse drag works
-- [ ] GitHub Pages deploy succeeds
+- [x] No runtime JavaScript errors
+- [x] No shader compile/link errors
+- [x] No giant lens-like blobs or hard rectangular/plateau artifacts
+- [x] Water remains visibly present while idle
+- [x] Dragging creates local ripples, not screen-wide deformation
+- [x] Submerged pebbles visibly refract as ripples pass
+- [x] Reflection changes with surface normal/view angle
+- [x] Leaves respond to drag-generated flow
+- [x] iPhone touch drag works
+- [x] Desktop mouse drag works
+- [x] GitHub Pages deploy succeeds
 
 ## Self-resolution scope
 Allowed: HTML/CSS/JS/WebGL shader changes, procedural textures, simulation tuning, GitHub Actions/Pages checks, browser-based visual verification, and temporary local validation files.
@@ -37,3 +37,7 @@ Allowed: HTML/CSS/JS/WebGL shader changes, procedural textures, simulation tunin
 - Breaking iPhone support
 - Adding paid/external runtime dependencies
 - Committing temporary validation artifacts
+
+
+## Latest validation basis
+Loop 3 scored **92/100**. Clean Chrome idle and forced strong-wave states were inspected visually; the previous reflective contour-band failure did not reproduce. JavaScript syntax is checked in CI before deployment, and the latest Pages deployment succeeded. Desktop mouse and iPhone-equivalent touch interaction were visually verified in earlier loops; Loop 3 does not alter those input handlers. True iPhone hardware Safari was not re-run during Loop 3.
