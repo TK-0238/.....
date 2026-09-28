@@ -108,7 +108,7 @@ void main() {
 
   float microX = sin(uv.y * 58.0 + uTime * 0.62) * 0.0011;
   float microY = sin(uv.x * 49.0 - uTime * 0.54) * 0.0010;
-  vec2 distortion = clamp(grad * 0.018, vec2(-0.018), vec2(0.018));
+  vec2 distortion = clamp(grad * 0.015, vec2(-0.012), vec2(0.012));
   distortion += vec2(microX, microY);
 
   vec2 refractedUv = clamp(uv + distortion, 0.002, 0.998);
@@ -119,7 +119,7 @@ void main() {
   bottom.b = texture(uBottom, clamp(uv + distortion * 0.91, 0.002, 0.998)).b;
 
   float curvature = (hl + hr + hu + hd - 4.0 * hc);
-  float caustic = smoothstep(-0.012, 0.042, curvature) * 0.24;
+  float caustic = smoothstep(-0.012, 0.042, curvature) * 0.14;
   caustic += pow(max(0.0, sin((uv.x + uv.y) * 110.0 + hc * 42.0 + uTime * 0.22)), 18.0) * 0.022;
 
   vec3 normal = normalize(vec3(-grad.x * 0.46, grad.y * 0.46, 1.0));
@@ -131,7 +131,7 @@ void main() {
   vec3 color = mix(bottom, waterTint, depthMix);
   color += vec3(0.46, 0.78, 0.69) * caustic;
 
-  float fresnel = 0.035 + pow(1.0 - clamp(normal.z, 0.0, 1.0), 2.2) * 0.52;
+  float fresnel = 0.022 + smoothstep(0.10, 1.35, length(grad)) * 0.028;
   vec3 sky = mix(vec3(0.08, 0.22, 0.24), vec3(0.50, 0.72, 0.70), smoothstep(0.0, 1.0, 1.0 - uv.y));
   color = mix(color, sky, fresnel);
   color += vec3(0.72, 0.95, 0.90) * sparkle;
@@ -671,7 +671,7 @@ stage.addEventListener("pointerdown", (e) => {
   pointers.set(e.pointerId, { ...p, t: performance.now() });
   stage.setPointerCapture?.(e.pointerId);
   stage.classList.add("is-stirring");
-  injectWave(p.x, p.y, -0.045, 0.045);
+  injectWave(p.x, p.y, -0.026, 0.042);
   revealInteraction();
 });
 
@@ -687,7 +687,7 @@ stage.addEventListener("pointermove", (e) => {
     const speed = Math.hypot(vx, vy);
 
     injectFlow(p.x, p.y, vx, vy, 1.0);
-    injectWave(p.x, p.y, clamp(speed * 0.010, 0.006, 0.028), 0.038);
+    injectWave(p.x, p.y, clamp(speed * 0.006, 0.004, 0.018), 0.036);
 
     pointers.set(e.pointerId, { ...p, t: now });
     revealInteraction();
@@ -733,7 +733,7 @@ function render(now) {
     injectWave(
       0.08 + random() * 0.84,
       0.08 + random() * 0.84,
-      (random() - 0.5) * 0.018,
+      (random() - 0.5) * 0.009,
       0.02 + random() * 0.018
     );
     nextAmbientRipple = now + 800 + random() * 1700;
