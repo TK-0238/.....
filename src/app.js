@@ -125,7 +125,9 @@ vec2 waveSlope(vec2 p, vec2 dir, float freq, float speed, float amp, float t) {
 }
 
 float causticPattern(vec2 p, float t) {
-  vec2 q = p * 34.0;
+  // Shallow-water caustics need a much finer spatial scale than the broad
+  // surface undulations. Large cells read as painted rivers across the bottom.
+  vec2 q = p * 105.0;
 
   float a1 = sin(q.x + sin(q.y * 0.73 + t * 0.62) * 1.35);
   float b1 = sin(q.y * 1.11 + sin(q.x * 0.86 - t * 0.48) * 1.28);
