@@ -70,7 +70,7 @@ void main() {
 }
 `;
 
-const fragmentSource = `#version 300 es
+const fragmentSource = \`#version 300 es
 precision highp float;
 
 in vec2 vUv;
@@ -83,6 +83,10 @@ uniform vec2 uWaveTexel;
 uniform vec2 uFlowTexel;
 uniform float uTime;
 uniform vec2 uResolution;
+
+float saturate(float x) {
+  return clamp(x, 0.0, 1.0);
+}
 
 float sampleWave(vec2 uv) {
   uv = clamp(uv, vec2(0.0), vec2(1.0));
@@ -112,10 +116,23 @@ vec2 sampleFlow(vec2 uv) {
   return mix(mix(v00, v10, f.x), mix(v01, v11, f.x), f.y);
 }
 
+vec2 waveSlope(vec2 p, vec2 dir, float freq, float speed, float amp, float t) {
+  dir = normalize(dir);
+  vec2 ortho = vec2(-dir.y, dir.x);
+  float warp = sin(dot(p, ortho) * freq * 0.41 - t * speed * 0.47) * 0.58;
+  float phase = dot(p, dir) * freq + warp + t * speed;
+  return dir * cos(phase) * amp;
+}
+
+vec3 acesApprox(vec3 x) {
+  return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+}
+
 void main() {
   vec2 uv = vUv;
   vec2 simUv = vec2(uv.x, 1.0 - uv.y);
   vec2 tx = uWaveTexel;
+  float aspect = uResolution.x / max(uResolution.y, 1.0);
 
   float hc = sampleWave(simUv);
   float hl = sampleWave(simUv - vec2(tx.x, 0.0));
@@ -123,60 +140,94 @@ void main() {
   float hu = sampleWave(simUv - vec2(0.0, tx.y));
   float hd = sampleWave(simUv + vec2(0.0, tx.y));
 
-  vec2 wide = tx * 3.5;
+  vec2 wide = tx * 3.0;
   float hwl = sampleWave(simUv - vec2(wide.x, 0.0));
   float hwr = sampleWave(simUv + vec2(wide.x, 0.0));
   float hwu = sampleWave(simUv - vec2(0.0, wide.y));
   float hwd = sampleWave(simUv + vec2(0.0, wide.y));
 
   vec2 flow = sampleFlow(simUv);
-  vec2 narrowGrad = vec2(hl - hr, hu - hd) * 6.4;
-  vec2 wideGrad = vec2(hwl - hwr, hwu - hwd) * 1.8;
-  vec2 grad = (narrowGrad - wideGrad) * 0.52;
-  grad += flow * 0.0025;
 
-  float microX = sin(uv.y * 58.0 + uTime * 0.62) * 0.00034;
-  float microY = sin(uv.x * 49.0 - uTime * 0.54) * 0.00031;
-  vec2 opticalSlope = grad * 0.55;
-  vec2 distortion = 0.0017 * opticalSlope / (vec2(1.0) + abs(opticalSlope));
-  distortion += vec2(microX, microY);
+  vec2 simSlope = vec2(hl - hr, hu - hd) * 9.0;
+  simSlope += vec2(hwl - hwr, hwu - hwd) * 1.6;
+  simSlope += flow * 0.006;
 
-  vec2 refractedUv = clamp(uv + distortion, 0.002, 0.998);
+  vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
+  vec2 fineSlope = vec2(0.0);
+  fineSlope += waveSlope(p, vec2(1.0, 0.24), 39.0, 0.78, 0.0105, uTime);
+  fineSlope += waveSlope(p, vec2(-0.37, 1.0), 54.0, -0.57, 0.0082, uTime);
+  fineSlope += waveSlope(p, vec2(0.71, 1.0), 73.0, 0.43, 0.0058, uTime);
+  fineSlope += waveSlope(p, vec2(-1.0, 0.58), 94.0, -0.34, 0.0038, uTime);
+
+  vec2 slope = simSlope + fineSlope;
+  vec3 normal = normalize(vec3(-slope.x, slope.y, 1.0));
+
+  float bedDepth = 0.50
+    + 0.055 * sin(uv.x * 2.8 + 0.6)
+    + 0.045 * sin(uv.y * 3.4 - 0.9);
+
+  vec2 refractOffset = normal.xy * (0.020 + bedDepth * 0.004);
+  refractOffset += flow * 0.00030;
+  vec2 refractedUv = clamp(uv + refractOffset, 0.002, 0.998);
 
   vec3 bottom;
-  bottom.r = texture(uBottom, clamp(uv + distortion * 1.035, 0.002, 0.998)).r;
+  bottom.r = texture(uBottom, clamp(refractedUv + normal.xy * 0.00016, 0.002, 0.998)).r;
   bottom.g = texture(uBottom, refractedUv).g;
-  bottom.b = texture(uBottom, clamp(uv + distortion * 0.965, 0.002, 0.998)).b;
+  bottom.b = texture(uBottom, clamp(refractedUv - normal.xy * 0.00012, 0.002, 0.998)).b;
 
-  float curvature = (hl + hr + hu + hd - 4.0 * hc);
-  float ridge = smoothstep(0.0018, 0.018, abs(curvature));
-  float caustic = pow(ridge, 3.0) * 0.105;
-  caustic += pow(max(0.0, sin((uv.x + uv.y) * 110.0 + hc * 42.0 + uTime * 0.22)), 18.0) * 0.014;
+  vec3 extinction = vec3(0.50, 0.17, 0.085);
+  vec3 transmittance = exp(-extinction * bedDepth);
+  vec3 waterScatter = vec3(0.035, 0.145, 0.155);
+  vec3 transmitted = bottom * transmittance
+    + waterScatter * (1.0 - transmittance) * 0.55;
 
-  vec3 normal = normalize(vec3(-grad.x * 0.46, grad.y * 0.46, 1.0));
-  vec3 lightDir = normalize(vec3(-0.28, -0.42, 0.86));
-  float sparkle = pow(max(dot(normal, lightDir), 0.0), 72.0) * 0.52;
+  float curvature = abs(hl + hr + hu + hd - 4.0 * hc);
+  float caustic = smoothstep(0.0014, 0.013, curvature);
+  caustic = pow(caustic, 2.3) * 0.075;
+  caustic += smoothstep(0.026, 0.075, length(fineSlope)) * 0.018;
+  transmitted += vec3(0.78, 0.88, 0.72) * caustic;
 
-  vec3 waterTint = vec3(0.035, 0.205, 0.215);
-  float depthMix = 0.14 + 0.055 * smoothstep(0.0, 1.0, uv.y);
-  vec3 color = mix(bottom, waterTint, depthMix);
-  color += vec3(0.46, 0.78, 0.69) * caustic;
+  vec2 eyePlane = (uv - 0.5) * vec2(aspect, 1.0);
+  vec3 viewDir = normalize(vec3(-eyePlane.x * 0.58, -eyePlane.y * 0.58, 1.0));
+  float nDotV = saturate(dot(normal, viewDir));
 
-  float fresnel = 0.024;
-  vec3 sky = mix(vec3(0.08, 0.22, 0.24), vec3(0.50, 0.72, 0.70), smoothstep(0.0, 1.0, 1.0 - uv.y));
-  color = mix(color, sky, fresnel);
-  color += vec3(0.72, 0.95, 0.90) * sparkle;
+  const float F0 = 0.0204;
+  float fresnel = F0 + (1.0 - F0) * pow(1.0 - nDotV, 5.0);
+  fresnel += smoothstep(0.025, 0.12, length(slope)) * 0.045;
+  fresnel = clamp(fresnel, F0, 0.16);
 
-  float edgeDistance = length((uv - 0.5) * vec2(uResolution.x / uResolution.y, 1.0));
-  float edge = 1.0 - smoothstep(0.14, 0.72, edgeDistance);
-  color *= mix(0.83, 1.0, edge);
+  float skyT = saturate(0.52 + normal.y * 0.70 - eyePlane.y * 0.16);
+  vec3 skyZenith = vec3(0.16, 0.31, 0.34);
+  vec3 skyHorizon = vec3(0.62, 0.72, 0.70);
+  vec3 reflection = mix(skyZenith, skyHorizon, skyT);
 
-  color = color / (color + vec3(0.92));
-  color = pow(color, vec3(0.92));
+  float broadCloud = 0.5 + 0.5 * sin(
+    p.x * 2.1
+    + sin(p.y * 1.7 + uTime * 0.035) * 0.75
+    - uTime * 0.018
+  );
+  reflection *= mix(0.91, 1.045, broadCloud * broadCloud);
+
+  vec3 lightDir = normalize(vec3(-0.18, -0.24, 0.95));
+  vec3 halfDir = normalize(lightDir + viewDir);
+  float nDotH = saturate(dot(normal, halfDir));
+  float sunGlint = pow(nDotH, 220.0) * 1.15;
+  sunGlint += pow(nDotH, 72.0) * 0.055;
+  sunGlint *= 0.45 + smoothstep(0.01, 0.08, length(slope)) * 0.8;
+
+  vec3 color = mix(transmitted, reflection, fresnel);
+  color += vec3(1.00, 0.96, 0.82) * sunGlint;
+
+  float edgeDistance = length((uv - 0.5) * vec2(aspect * 0.82, 1.0));
+  float vignette = 1.0 - smoothstep(0.34, 1.02, edgeDistance);
+  color *= mix(0.91, 1.0, vignette);
+
+  color = acesApprox(color * 1.08);
+  color = pow(color, vec3(0.96));
 
   outColor = vec4(color, 1.0);
 }
-`;
+\`;
 
 const program = makeProgram(vertexSource, fragmentSource);
 const vao = gl.createVertexArray();
@@ -603,18 +654,7 @@ const leafSprites = [
 ];
 
 const leaves = [];
-const interactionRipples = [];
 const leafCount = prefersReducedMotion ? 8 : 13;
-
-function addInteractionRipple(nx, ny, strength = 1) {
-  interactionRipples.push({
-    x: nx,
-    y: ny,
-    born: performance.now(),
-    strength: clamp(strength, 0.5, 1.6),
-  });
-  if (interactionRipples.length > 18) interactionRipples.shift();
-}
 
 function spawnLeaf(index, edge = false) {
   const leaf = leaves[index] || {};
@@ -636,35 +676,6 @@ function drawLeaves(time, dt) {
   const ctx = leafCtx;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
-
-  for (let i = interactionRipples.length - 1; i >= 0; i--) {
-    const ripple = interactionRipples[i];
-    const age = (time - ripple.born) / 1000;
-    if (age > 0.95) {
-      interactionRipples.splice(i, 1);
-      continue;
-    }
-
-    const t = clamp(age / 0.95, 0, 1);
-    const eased = 1 - Math.pow(1 - t, 2.2);
-    const radius = (10 + 72 * eased) * ripple.strength;
-    const alpha = Math.pow(1 - t, 1.8) * 0.26;
-
-    ctx.save();
-    ctx.translate(ripple.x * width, ripple.y * height);
-    ctx.strokeStyle = `rgba(220,255,248,${alpha})`;
-    ctx.lineWidth = 1.15 + (1 - t) * 0.8;
-    ctx.beginPath();
-    ctx.arc(0, 0, radius, 0, TAU);
-    ctx.stroke();
-
-    ctx.strokeStyle = `rgba(112,205,196,${alpha * 0.55})`;
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.arc(0, 0, radius * 0.72, 0, TAU);
-    ctx.stroke();
-    ctx.restore();
-  }
 
   for (let i = 0; i < leaves.length; i++) {
     const leaf = leaves[i];
@@ -758,7 +769,6 @@ function beginInteraction(id, x, y, pointerType = "touch") {
 
   const touchLike = pointerType === "touch" || pointerType === "pen";
   injectWave(x, y, touchLike ? -0.052 : -0.018, touchLike ? 0.042 : 0.034);
-  addInteractionRipple(x, y, touchLike ? 1.12 : 0.82);
   revealInteraction();
 }
 
@@ -785,7 +795,6 @@ function moveInteraction(id, x, y, pointerType = "touch") {
 
   let rippleT = previous.rippleT || now;
   if (touchLike && now - rippleT > 54) {
-    addInteractionRipple(x, y, clamp(0.78 + speed * 0.11, 0.78, 1.28));
     rippleT = now;
   }
 
