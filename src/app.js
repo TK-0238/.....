@@ -275,7 +275,7 @@ function makePebbleTexture() {
     const r = 0.25 + random() * 1.1;
     const v = 74 + Math.floor(random() * 72);
     ctx.globalAlpha = 0.045 + random() * 0.11;
-    ctx.fillStyle = \`rgb(\${v}, \${Math.max(45, v - 4)}, \${Math.max(42, v - 12)})\`;
+    ctx.fillStyle = "rgb(" + v + ", " + Math.max(45, v - 4) + ", " + Math.max(42, v - 12) + ")";
     ctx.beginPath();
     ctx.arc(x, y, r, 0, TAU);
     ctx.fill();
