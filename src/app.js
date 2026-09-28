@@ -174,13 +174,19 @@ void main() {
 
   vec2 narrowSlope = vec2(hl - hr, hu - hd) * 6.6;
   vec2 broadSlope = vec2(hwl - hwr, hwu - hwd) * 1.55;
-  vec2 simSlope = (narrowSlope - broadSlope) * 0.78 * waveFrontMask;
+
+  // Use the physical local height gradient as the primary interactive normal.
+  // The old narrow-minus-broad band-pass rejected smooth, realistic ripples after
+  // the solver became isotropic. Keep only a small band-pass term for crisp detail.
+  vec2 simSlope = narrowSlope * (0.30 + waveEnergy * 0.52);
+  simSlope += (narrowSlope - broadSlope) * 0.20 * waveFrontMask;
+
   // Bulk flow primarily transports floating objects; only a restrained portion
   // perturbs the optical normal. This prevents long brush-like streaks after stirring.
   simSlope += flow * 0.00055;
   float simMagnitude = length(simSlope);
-  if (simMagnitude > 0.036) {
-    simSlope *= 0.036 / simMagnitude;
+  if (simMagnitude > 0.052) {
+    simSlope *= 0.052 / simMagnitude;
   }
 
   vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
