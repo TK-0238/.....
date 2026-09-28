@@ -459,6 +459,8 @@ let waveW = 200;
 let waveH = 120;
 let waveHeight = new Float32Array(waveW * waveH);
 let waveVelocity = new Float32Array(waveW * waveH);
+let waveNextHeight = new Float32Array(waveW * waveH);
+let waveNextVelocity = new Float32Array(waveW * waveH);
 let waveTexture = makeFloatTexture(gl.R32F, gl.RED, waveW, waveH, waveHeight);
 
 let flowW = 76;
@@ -477,6 +479,8 @@ function rebuildSimulation() {
   waveH = clamp(Math.round(waveW / aspect), 110, 230);
   waveHeight = new Float32Array(waveW * waveH);
   waveVelocity = new Float32Array(waveW * waveH);
+  waveNextHeight = new Float32Array(waveW * waveH);
+  waveNextVelocity = new Float32Array(waveW * waveH);
 
   flowW = clamp(Math.round(86 * Math.sqrt(aspect)), 66, 112);
   flowH = clamp(Math.round(flowW / aspect), 44, 92);
@@ -565,6 +569,9 @@ function injectFlow(nx, ny, vx, vy, strength = 1) {
 }
 
 function stepWave() {
+  // Read exclusively from the previous state and write into separate buffers.
+  // In-place updates bias propagation toward the scan direction and can turn
+  // circular ripples into long diagonal/vertical streaks.
   for (let pass = 0; pass < 2; pass++) {
     for (let y = 1; y < waveH - 1; y++) {
       const row = y * waveW;
@@ -577,18 +584,23 @@ function stepWave() {
           waveHeight[i + waveW] -
           waveHeight[i] * 4;
 
-        waveVelocity[i] = clamp(
+        const velocity = clamp(
           (waveVelocity[i] + lap * 0.108) * 0.9865,
           -0.028,
           0.028
         );
-        waveHeight[i] = clamp(
-          (waveHeight[i] + waveVelocity[i]) * 0.9988,
+
+        waveNextVelocity[i] = velocity;
+        waveNextHeight[i] = clamp(
+          (waveHeight[i] + velocity) * 0.9988,
           -0.085,
           0.085
         );
       }
     }
+
+    [waveHeight, waveNextHeight] = [waveNextHeight, waveHeight];
+    [waveVelocity, waveNextVelocity] = [waveNextVelocity, waveVelocity];
   }
 }
 
