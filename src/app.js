@@ -149,8 +149,8 @@ void main() {
   bottom.b = texture(uBottom, clamp(uv + distortion * 0.965, 0.002, 0.998)).b;
 
   float curvature = (hl + hr + hu + hd - 4.0 * hc);
-  float caustic = smoothstep(-0.012, 0.042, curvature) * 0.14;
-  caustic += pow(max(0.0, sin((uv.x + uv.y) * 110.0 + hc * 42.0 + uTime * 0.22)), 18.0) * 0.022;
+  float caustic = smoothstep(0.004, 0.026, abs(curvature)) * 0.085;
+  caustic += pow(max(0.0, sin((uv.x + uv.y) * 110.0 + hc * 42.0 + uTime * 0.22)), 18.0) * 0.016;
 
   vec3 normal = normalize(vec3(-grad.x * 0.46, grad.y * 0.46, 1.0));
   vec3 lightDir = normalize(vec3(-0.28, -0.42, 0.86));
