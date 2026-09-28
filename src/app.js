@@ -179,13 +179,21 @@ void main() {
   }
 
   vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
+  // Local flow gently warps only the capillary field. This makes stirred water
+  // look turbulent without turning the broad simulation waves into reflection bands.
+  vec2 flowWarp = clamp(flow, vec2(-1.4), vec2(1.4)) * 0.012;
+  p += flowWarp;
+
   vec2 fineSlope = vec2(0.0);
   fineSlope += waveSlope(p, vec2(1.0, 0.24), 39.0, 0.78, 0.0105, uTime);
   fineSlope += waveSlope(p, vec2(-0.37, 1.0), 54.0, -0.57, 0.0082, uTime);
   fineSlope += waveSlope(p, vec2(0.71, 1.0), 73.0, 0.43, 0.0058, uTime);
   fineSlope += waveSlope(p, vec2(-1.0, 0.58), 94.0, -0.34, 0.0038, uTime);
 
-  vec2 slope = fineSlope + simSlope * 0.08;
+  // Reflection uses the fine capillary normal only. Interactive waves are kept
+  // primarily in transmission/refraction so strong stirring does not create
+  // screen-wide reflective contour bands.
+  vec2 slope = fineSlope;
   vec3 normal = normalize(vec3(-slope.x, slope.y, 1.0));
 
   float bedDepth = 0.50
@@ -193,8 +201,12 @@ void main() {
     + 0.045 * sin(uv.y * 3.4 - 0.9);
 
   vec2 fineOffset = vec2(-fineSlope.x, fineSlope.y) * 0.052;
-  vec2 rippleOffset = vec2(-simSlope.x, simSlope.y) * 0.012;
+  vec2 rippleOffset = vec2(-simSlope.x, simSlope.y) * 0.105;
   vec2 refractOffset = fineOffset + rippleOffset + flow * 0.00008;
+  float refractMagnitude = length(refractOffset);
+  if (refractMagnitude > 0.0065) {
+    refractOffset *= 0.0065 / refractMagnitude;
+  }
   vec2 refractedUv = clamp(uv + refractOffset, 0.002, 0.998);
 
   vec3 bottom;
@@ -248,6 +260,13 @@ void main() {
   vec3 color = mix(transmitted, reflection, surfaceReflect);
   color += vec3(1.00, 0.96, 0.82) * sunGlint;
 
+  // A narrow, shader-derived crest sheen ties the interaction wave back to the
+  // surface without drawing fake rings on top of the scene.
+  float curvatureAbs = abs(signedCurvature);
+  float crestSheen =
+    smoothstep(0.0016, 0.0058, curvatureAbs) *
+    (1.0 - smoothstep(0.010, 0.020, curvatureAbs));
+  color += vec3(0.72, 0.88, 0.90) * crestSheen * 0.032;
 
   float edgeDistance = length((uv - 0.5) * vec2(aspect * 0.82, 1.0));
   float vignette = 1.0 - smoothstep(0.34, 1.02, edgeDistance);
@@ -969,6 +988,8 @@ if (isIOS) {
 }
 
 let lastTime = performance.now();
+let waveAccumulator = 0;
+const WAVE_STEP = 1 / 60;
 let nextAmbientRipple = lastTime + 900;
 
 function render(now) {
@@ -978,7 +999,16 @@ function render(now) {
   lastTime = now;
 
   stepFlow(dt);
-  stepWave();
+
+  // Run the wave solver at a fixed rate so propagation and damping are
+  // consistent on 30/60/120 Hz displays.
+  waveAccumulator = Math.min(waveAccumulator + dt, WAVE_STEP * 4);
+  let waveSteps = 0;
+  while (waveAccumulator >= WAVE_STEP && waveSteps < 4) {
+    stepWave();
+    waveAccumulator -= WAVE_STEP;
+    waveSteps++;
+  }
 
   if (!prefersReducedMotion && now > nextAmbientRipple) {
     injectWave(
@@ -1021,6 +1051,7 @@ function render(now) {
 addEventListener("resize", resize, { passive: true });
 document.addEventListener("visibilitychange", () => {
   lastTime = performance.now();
+  waveAccumulator = 0;
 });
 
 resize();
