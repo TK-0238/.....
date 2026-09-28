@@ -125,11 +125,21 @@ vec2 waveSlope(vec2 p, vec2 dir, float freq, float speed, float amp, float t) {
 }
 
 float causticPattern(vec2 p, float t) {
-  vec2 q = p * 42.0;
-  float a = sin(q.x + sin(q.y * 1.23 + t * 0.72) * 1.18);
-  float b = sin(q.y * 0.91 + sin(q.x * 1.37 - t * 0.58) * 1.12);
-  float ridge = 1.0 - min(1.0, abs(a + b) * 0.56);
-  return pow(ridge, 7.0);
+  vec2 q = p * 23.0;
+
+  float a1 = sin(q.x + sin(q.y * 0.73 + t * 0.62) * 1.35);
+  float b1 = sin(q.y * 1.11 + sin(q.x * 0.86 - t * 0.48) * 1.28);
+  float c1 = sin((q.x + q.y) * 0.61 + sin((q.x - q.y) * 0.77 + t * 0.36));
+  float field1 = a1 + b1 + c1 * 0.62;
+  float line1 = exp(-5.8 * field1 * field1);
+
+  vec2 q2 = q * 1.57 + vec2(1.7, -2.3);
+  float a2 = sin(q2.x + sin(q2.y * 0.82 - t * 0.43) * 1.15);
+  float b2 = sin(q2.y + sin(q2.x * 0.79 + t * 0.51) * 1.22);
+  float field2 = a2 + b2;
+  float line2 = exp(-7.4 * field2 * field2);
+
+  return clamp(line1 * 0.72 + line2 * 0.36, 0.0, 1.0);
 }
 
 vec3 acesApprox(vec3 x) {
@@ -182,8 +192,9 @@ void main() {
     + 0.055 * sin(uv.x * 2.8 + 0.6)
     + 0.045 * sin(uv.y * 3.4 - 0.9);
 
-  vec2 refractOffset = normal.xy * (0.027 + bedDepth * 0.004);
-  refractOffset += flow * 0.00012;
+  vec2 fineOffset = vec2(-fineSlope.x, fineSlope.y) * 0.052;
+  vec2 rippleOffset = vec2(-simSlope.x, simSlope.y) * 0.018;
+  vec2 refractOffset = fineOffset + rippleOffset + flow * 0.00008;
   vec2 refractedUv = clamp(uv + refractOffset, 0.002, 0.998);
 
   vec3 bottom;
@@ -191,9 +202,9 @@ void main() {
   bottom.g = texture(uBottom, refractedUv).g;
   bottom.b = texture(uBottom, clamp(refractedUv - normal.xy * 0.00012, 0.002, 0.998)).b;
 
-  vec3 extinction = vec3(0.25, 0.080, 0.038);
+  vec3 extinction = vec3(0.20, 0.060, 0.030);
   vec3 transmittance = exp(-extinction * bedDepth);
-  vec3 waterScatter = vec3(0.016, 0.070, 0.080);
+  vec3 waterScatter = vec3(0.010, 0.048, 0.058);
   vec3 transmitted = bottom * transmittance
     + waterScatter * (1.0 - transmittance) * 0.42;
 
@@ -205,8 +216,8 @@ void main() {
     (refractedUv - 0.5) * vec2(aspect, 1.0),
     uTime
   );
-  transmitted += vec3(0.76, 0.84, 0.68) * caustic;
-  transmitted += vec3(0.46, 0.52, 0.40) * floorShimmer * 0.020;
+  transmitted += vec3(0.82, 0.88, 0.70) * caustic;
+  transmitted += vec3(0.92, 0.86, 0.64) * floorShimmer * 0.105;
   transmitted += vec3(0.20, 0.28, 0.27)
     * clamp(signedCurvature * 4.0, -0.016, 0.016);
 
