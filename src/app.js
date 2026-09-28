@@ -80,15 +80,36 @@ uniform sampler2D uBottom;
 uniform sampler2D uWave;
 uniform sampler2D uFlow;
 uniform vec2 uWaveTexel;
+uniform vec2 uFlowTexel;
 uniform float uTime;
 uniform vec2 uResolution;
 
-float waveAt(vec2 uv) {
-  return texture(uWave, vec2(uv.x, 1.0 - uv.y)).r;
+float sampleWave(vec2 uv) {
+  uv = clamp(uv, vec2(0.0), vec2(1.0));
+  vec2 p = uv / uWaveTexel - 0.5;
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  vec2 a = (i + 0.5) * uWaveTexel;
+  vec2 b = a + uWaveTexel;
+  float v00 = texture(uWave, a).r;
+  float v10 = texture(uWave, vec2(b.x, a.y)).r;
+  float v01 = texture(uWave, vec2(a.x, b.y)).r;
+  float v11 = texture(uWave, b).r;
+  return mix(mix(v00, v10, f.x), mix(v01, v11, f.x), f.y);
 }
 
-vec2 flowAt(vec2 uv) {
-  return texture(uFlow, vec2(uv.x, 1.0 - uv.y)).rg;
+vec2 sampleFlow(vec2 uv) {
+  uv = clamp(uv, vec2(0.0), vec2(1.0));
+  vec2 p = uv / uFlowTexel - 0.5;
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  vec2 a = (i + 0.5) * uFlowTexel;
+  vec2 b = a + uFlowTexel;
+  vec2 v00 = texture(uFlow, a).rg;
+  vec2 v10 = texture(uFlow, vec2(b.x, a.y)).rg;
+  vec2 v01 = texture(uFlow, vec2(a.x, b.y)).rg;
+  vec2 v11 = texture(uFlow, b).rg;
+  return mix(mix(v00, v10, f.x), mix(v01, v11, f.x), f.y);
 }
 
 void main() {
@@ -96,13 +117,13 @@ void main() {
   vec2 simUv = vec2(uv.x, 1.0 - uv.y);
   vec2 tx = uWaveTexel;
 
-  float hc = texture(uWave, simUv).r;
-  float hl = texture(uWave, simUv - vec2(tx.x, 0.0)).r;
-  float hr = texture(uWave, simUv + vec2(tx.x, 0.0)).r;
-  float hu = texture(uWave, simUv - vec2(0.0, tx.y)).r;
-  float hd = texture(uWave, simUv + vec2(0.0, tx.y)).r;
+  float hc = sampleWave(simUv);
+  float hl = sampleWave(simUv - vec2(tx.x, 0.0));
+  float hr = sampleWave(simUv + vec2(tx.x, 0.0));
+  float hu = sampleWave(simUv - vec2(0.0, tx.y));
+  float hd = sampleWave(simUv + vec2(0.0, tx.y));
 
-  vec2 flow = texture(uFlow, simUv).rg;
+  vec2 flow = sampleFlow(simUv);
   vec2 grad = vec2(hl - hr, hu - hd) * 6.4;
   grad += flow * 0.014;
 
@@ -155,6 +176,7 @@ const uniforms = {
   wave: gl.getUniformLocation(program, "uWave"),
   flow: gl.getUniformLocation(program, "uFlow"),
   waveTexel: gl.getUniformLocation(program, "uWaveTexel"),
+  flowTexel: gl.getUniformLocation(program, "uFlowTexel"),
   time: gl.getUniformLocation(program, "uTime"),
   resolution: gl.getUniformLocation(program, "uResolution"),
 };
@@ -164,8 +186,8 @@ const floatLinear = !!gl.getExtension("OES_texture_float_linear");
 function makeFloatTexture(internalFormat, format, width, height, data) {
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, floatLinear ? gl.LINEAR : gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, floatLinear ? gl.LINEAR : gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, width, height, 0, format, gl.FLOAT, data);
@@ -757,6 +779,7 @@ function render(now) {
   gl.uniform1i(uniforms.flow, 2);
 
   gl.uniform2f(uniforms.waveTexel, 1 / waveW, 1 / waveH);
+  gl.uniform2f(uniforms.flowTexel, 1 / flowW, 1 / flowH);
   gl.uniform1f(uniforms.time, now / 1000);
   gl.uniform2f(uniforms.resolution, width, height);
 
