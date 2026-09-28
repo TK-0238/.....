@@ -722,6 +722,10 @@ function drawLeaves(time, dt) {
   }
 }
 
+const isIOS =
+  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
 const pointers = new Map();
 let interacted = false;
 
@@ -733,61 +737,92 @@ function pointerPosition(e) {
   };
 }
 
+function touchPosition(touch) {
+  const rect = stage.getBoundingClientRect();
+  return {
+    x: clamp((touch.clientX - rect.left) / rect.width, 0, 1),
+    y: clamp((touch.clientY - rect.top) / rect.height, 0, 1),
+  };
+}
+
 function revealInteraction() {
   if (interacted) return;
   interacted = true;
   hint.classList.add("is-hidden");
 }
 
-stage.addEventListener("pointerdown", (e) => {
-  const p = pointerPosition(e);
+function beginInteraction(id, x, y, pointerType = "touch") {
   const now = performance.now();
-  pointers.set(e.pointerId, { ...p, t: now, rippleT: now });
+  pointers.set(id, { x, y, t: now, rippleT: now });
+  stage.classList.add("is-stirring");
+
+  const touchLike = pointerType === "touch" || pointerType === "pen";
+  injectWave(x, y, touchLike ? -0.052 : -0.018, touchLike ? 0.042 : 0.034);
+  addInteractionRipple(x, y, touchLike ? 1.12 : 0.82);
+  revealInteraction();
+}
+
+function moveInteraction(id, x, y, pointerType = "touch") {
+  const now = performance.now();
+  const previous = pointers.get(id);
+  if (!previous) return;
+
+  const dt = clamp((now - previous.t) / 1000, 1 / 240, 0.08);
+  const vx = clamp((x - previous.x) / dt, -2.6, 2.6);
+  const vy = clamp((y - previous.y) / dt, -2.6, 2.6);
+  const speed = Math.hypot(vx, vy);
+  const touchLike = pointerType === "touch" || pointerType === "pen";
+
+  injectFlow(x, y, vx, vy, touchLike ? 1.75 : 1.0);
+  injectWave(
+    x,
+    y,
+    touchLike
+      ? clamp(speed * 0.011, 0.007, 0.036)
+      : clamp(speed * 0.0032, 0.0020, 0.010),
+    touchLike ? 0.038 : 0.030
+  );
+
+  let rippleT = previous.rippleT || now;
+  if (touchLike && now - rippleT > 54) {
+    addInteractionRipple(x, y, clamp(0.78 + speed * 0.11, 0.78, 1.28));
+    rippleT = now;
+  }
+
+  pointers.set(id, { x, y, t: now, rippleT });
+  revealInteraction();
+}
+
+function endInteraction(id) {
+  pointers.delete(id);
+  if (pointers.size === 0) stage.classList.remove("is-stirring");
+}
+
+stage.addEventListener("pointerdown", (e) => {
+  if (isIOS && e.pointerType !== "mouse") return;
+
+  const p = pointerPosition(e);
   try {
     stage.setPointerCapture?.(e.pointerId);
   } catch {
-    // Some embedded mobile browsers reject capture even though pointer events work.
+    // Embedded browsers can reject pointer capture even when pointer events work.
   }
-  if (e.pointerType !== "mouse") e.preventDefault();
-  stage.classList.add("is-stirring");
 
-  const touchLike = e.pointerType === "touch" || e.pointerType === "pen";
-  injectWave(p.x, p.y, touchLike ? -0.050 : -0.018, touchLike ? 0.040 : 0.034);
-  addInteractionRipple(p.x, p.y, touchLike ? 1.05 : 0.82);
-  revealInteraction();
-});
+  if (e.pointerType !== "mouse") e.preventDefault();
+  beginInteraction(e.pointerId, p.x, p.y, e.pointerType);
+}, { passive: false });
 
 stage.addEventListener("pointermove", (e) => {
+  if (isIOS && e.pointerType !== "mouse") return;
+
   const p = pointerPosition(e);
-  const now = performance.now();
   const previous = pointers.get(e.pointerId);
 
   if (previous) {
-    const dt = clamp((now - previous.t) / 1000, 1 / 240, 0.08);
-    const vx = clamp((p.x - previous.x) / dt, -2.6, 2.6);
-    const vy = clamp((p.y - previous.y) / dt, -2.6, 2.6);
-    const speed = Math.hypot(vx, vy);
-
-    const touchLike = e.pointerType === "touch" || e.pointerType === "pen";
-    injectFlow(p.x, p.y, vx, vy, touchLike ? 1.55 : 1.0);
-    injectWave(
-      p.x,
-      p.y,
-      touchLike
-        ? clamp(speed * 0.010, 0.006, 0.032)
-        : clamp(speed * 0.0032, 0.0020, 0.010),
-      touchLike ? 0.036 : 0.030
-    );
-
-    if (touchLike && now - (previous.rippleT || 0) > 58) {
-      addInteractionRipple(p.x, p.y, clamp(0.72 + speed * 0.10, 0.72, 1.2));
-      previous.rippleT = now;
-    }
-
-    if (touchLike) e.preventDefault();
-    pointers.set(e.pointerId, { ...p, t: now, rippleT: previous.rippleT || now });
-    revealInteraction();
+    if (e.pointerType !== "mouse") e.preventDefault();
+    moveInteraction(e.pointerId, p.x, p.y, e.pointerType);
   } else if (e.pointerType === "mouse") {
+    const now = performance.now();
     const hover = stage._hover || { ...p, t: now };
     const dt = clamp((now - hover.t) / 1000, 1 / 240, 0.12);
     const vx = clamp((p.x - hover.x) / dt, -1.4, 1.4);
@@ -802,16 +837,49 @@ stage.addEventListener("pointermove", (e) => {
   }
 }, { passive: false });
 
-function endPointer(e) {
-  pointers.delete(e.pointerId);
-  if (pointers.size === 0) stage.classList.remove("is-stirring");
-}
+stage.addEventListener("pointerup", (e) => {
+  if (isIOS && e.pointerType !== "mouse") return;
+  endInteraction(e.pointerId);
+});
 
-stage.addEventListener("pointerup", endPointer);
-stage.addEventListener("pointercancel", endPointer);
+stage.addEventListener("pointercancel", (e) => {
+  if (isIOS && e.pointerType !== "mouse") return;
+  endInteraction(e.pointerId);
+});
+
 stage.addEventListener("pointerleave", (e) => {
   if (e.pointerType === "mouse" && !pointers.has(e.pointerId)) stage._hover = null;
 });
+
+if (isIOS) {
+  stage.addEventListener("touchstart", (e) => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      const p = touchPosition(touch);
+      beginInteraction(`touch-${touch.identifier}`, p.x, p.y, "touch");
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  stage.addEventListener("touchmove", (e) => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const touch = e.changedTouches[i];
+      const p = touchPosition(touch);
+      moveInteraction(`touch-${touch.identifier}`, p.x, p.y, "touch");
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  const endTouch = (e) => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      endInteraction(`touch-${e.changedTouches[i].identifier}`);
+    }
+    e.preventDefault();
+  };
+
+  stage.addEventListener("touchend", endTouch, { passive: false });
+  stage.addEventListener("touchcancel", endTouch, { passive: false });
+}
 
 let lastTime = performance.now();
 let nextAmbientRipple = lastTime + 900;
