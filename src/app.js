@@ -185,7 +185,7 @@ void main() {
   fineSlope += waveSlope(p, vec2(0.71, 1.0), 73.0, 0.43, 0.0058, uTime);
   fineSlope += waveSlope(p, vec2(-1.0, 0.58), 94.0, -0.34, 0.0038, uTime);
 
-  vec2 slope = fineSlope + simSlope * 0.16;
+  vec2 slope = fineSlope + simSlope * 0.22;
   vec3 normal = normalize(vec3(-slope.x, slope.y, 1.0));
 
   float bedDepth = 0.50
@@ -231,33 +231,25 @@ void main() {
   fresnel = clamp(fresnel, F0, 0.16);
 
   vec3 reflectedDir = normalize(reflect(-viewDir, normal));
-  float horizon = saturate(reflectedDir.z * 0.72 + 0.28);
-  vec3 skyZenith = vec3(0.085, 0.19, 0.23);
-  vec3 skyHorizon = vec3(0.48, 0.61, 0.62);
-  vec3 reflection = mix(skyHorizon, skyZenith, smoothstep(0.18, 0.95, horizon));
-
-  vec2 skyPlane = reflectedDir.xy / max(0.26, reflectedDir.z + 0.34);
-  float cloudA = 0.5 + 0.5 * sin(
-    skyPlane.x * 3.8
-    + sin(skyPlane.y * 2.4 + uTime * 0.027) * 1.35
-    - uTime * 0.012
+  float skyHeight = saturate(reflectedDir.z);
+  vec3 skyZenith = vec3(0.075, 0.18, 0.225);
+  vec3 skyHorizon = vec3(0.47, 0.60, 0.615);
+  vec3 reflection = mix(
+    skyHorizon,
+    skyZenith,
+    smoothstep(0.12, 0.98, skyHeight)
   );
-  float cloudB = 0.5 + 0.5 * sin(
-    skyPlane.y * 5.1
-    - sin(skyPlane.x * 2.9 - uTime * 0.019) * 1.10
-    + uTime * 0.010
-  );
-  float cloud = smoothstep(0.54, 0.93, cloudA * 0.58 + cloudB * 0.42);
-  reflection = mix(reflection, vec3(0.64, 0.70, 0.68), cloud * 0.24);
 
-  vec3 lightDir = normalize(vec3(-0.13, -0.18, 0.975));
-  vec3 halfDir = normalize(lightDir + viewDir);
-  float nDotH = saturate(dot(normal, halfDir));
-  float sunGlint = pow(nDotH, 260.0) * 0.25;
-  sunGlint += pow(nDotH, 84.0) * 0.030;
-  sunGlint *= 0.38 + smoothstep(0.008, 0.065, length(slope)) * 0.95;
+  float horizonGlow = 1.0 - smoothstep(0.10, 0.38, skyHeight);
+  reflection += vec3(0.11, 0.095, 0.070) * horizonGlow * 0.16;
 
-  float surfaceReflect = clamp(fresnel + 0.016, 0.038, 0.15);
+  vec3 sunDir = normalize(vec3(-0.085, -0.115, 0.989));
+  float sunAlignment = saturate(dot(reflectedDir, sunDir));
+  float sunGlint = pow(sunAlignment, 620.0) * 0.72;
+  sunGlint += pow(sunAlignment, 110.0) * 0.028;
+  sunGlint *= 0.42 + smoothstep(0.008, 0.060, length(slope)) * 0.88;
+
+  float surfaceReflect = clamp(fresnel + 0.010, 0.028, 0.14);
   vec3 color = mix(transmitted, reflection, surfaceReflect);
   color += vec3(1.00, 0.96, 0.82) * sunGlint;
 
