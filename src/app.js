@@ -185,7 +185,7 @@ void main() {
   fineSlope += waveSlope(p, vec2(0.71, 1.0), 73.0, 0.43, 0.0058, uTime);
   fineSlope += waveSlope(p, vec2(-1.0, 0.58), 94.0, -0.34, 0.0038, uTime);
 
-  vec2 slope = fineSlope + simSlope * 0.22;
+  vec2 slope = fineSlope + simSlope * 0.08;
   vec3 normal = normalize(vec3(-slope.x, slope.y, 1.0));
 
   float bedDepth = 0.50
@@ -193,7 +193,7 @@ void main() {
     + 0.045 * sin(uv.y * 3.4 - 0.9);
 
   vec2 fineOffset = vec2(-fineSlope.x, fineSlope.y) * 0.052;
-  vec2 rippleOffset = vec2(-simSlope.x, simSlope.y) * 0.008;
+  vec2 rippleOffset = vec2(-simSlope.x, simSlope.y) * 0.012;
   vec2 refractOffset = fineOffset + rippleOffset + flow * 0.00008;
   vec2 refractedUv = clamp(uv + refractOffset, 0.002, 0.998);
 
@@ -252,6 +252,9 @@ void main() {
   float surfaceReflect = clamp(fresnel + 0.010, 0.028, 0.14);
   vec3 color = mix(transmitted, reflection, surfaceReflect);
   color += vec3(1.00, 0.96, 0.82) * sunGlint;
+
+  float rippleSheen = pow(waveFrontMask, 3.0) * 0.020;
+  color += vec3(0.62, 0.78, 0.76) * rippleSheen;
 
   float edgeDistance = length((uv - 0.5) * vec2(aspect * 0.82, 1.0));
   float vignette = 1.0 - smoothstep(0.34, 1.02, edgeDistance);
@@ -850,7 +853,7 @@ function beginInteraction(id, x, y, pointerType = "touch") {
   stage.classList.add("is-stirring");
 
   const touchLike = pointerType === "touch" || pointerType === "pen";
-  injectWave(x, y, touchLike ? -0.016 : -0.009, touchLike ? 0.030 : 0.027);
+  injectWave(x, y, touchLike ? -0.012 : -0.006, touchLike ? 0.028 : 0.025);
   revealInteraction();
 }
 
@@ -870,8 +873,8 @@ function moveInteraction(id, x, y, pointerType = "touch") {
     x,
     y,
     touchLike
-      ? clamp(speed * 0.0032, 0.0018, 0.0090)
-      : clamp(speed * 0.0032, 0.0020, 0.010),
+      ? clamp(speed * 0.0024, 0.0014, 0.0065)
+      : clamp(speed * 0.0023, 0.0014, 0.0070),
     touchLike ? 0.038 : 0.030
   );
 
@@ -922,7 +925,7 @@ stage.addEventListener("pointermove", (e) => {
 
     if (speed > 0.03) {
       injectFlow(p.x, p.y, vx, vy, 0.18);
-      injectWave(p.x, p.y, clamp(speed * 0.002, 0.001, 0.0045), 0.024);
+      injectWave(p.x, p.y, clamp(speed * 0.0014, 0.0008, 0.0030), 0.022);
     }
     stage._hover = { ...p, t: now };
   }
