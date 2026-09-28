@@ -149,8 +149,9 @@ void main() {
   bottom.b = texture(uBottom, clamp(uv + distortion * 0.965, 0.002, 0.998)).b;
 
   float curvature = (hl + hr + hu + hd - 4.0 * hc);
-  float caustic = smoothstep(0.004, 0.026, abs(curvature)) * 0.085;
-  caustic += pow(max(0.0, sin((uv.x + uv.y) * 110.0 + hc * 42.0 + uTime * 0.22)), 18.0) * 0.016;
+  float ridge = smoothstep(0.0018, 0.018, abs(curvature));
+  float caustic = pow(ridge, 3.0) * 0.105;
+  caustic += pow(max(0.0, sin((uv.x + uv.y) * 110.0 + hc * 42.0 + uTime * 0.22)), 18.0) * 0.014;
 
   vec3 normal = normalize(vec3(-grad.x * 0.46, grad.y * 0.46, 1.0));
   vec3 lightDir = normalize(vec3(-0.28, -0.42, 0.86));
@@ -424,7 +425,7 @@ function stepWave() {
           waveHeight[i + waveW] -
           waveHeight[i] * 4;
 
-        waveVelocity[i] = (waveVelocity[i] + lap * 0.108) * 0.9865;
+        waveVelocity[i] = (waveVelocity[i] + lap * 0.108) * 0.9895;
         waveHeight[i] = (waveHeight[i] + waveVelocity[i]) * 0.9988;
       }
     }
@@ -703,7 +704,7 @@ stage.addEventListener("pointerdown", (e) => {
   pointers.set(e.pointerId, { ...p, t: performance.now() });
   stage.setPointerCapture?.(e.pointerId);
   stage.classList.add("is-stirring");
-  injectWave(p.x, p.y, -0.012, 0.034);
+  injectWave(p.x, p.y, -0.018, 0.034);
   revealInteraction();
 });
 
@@ -719,7 +720,7 @@ stage.addEventListener("pointermove", (e) => {
     const speed = Math.hypot(vx, vy);
 
     injectFlow(p.x, p.y, vx, vy, 1.0);
-    injectWave(p.x, p.y, clamp(speed * 0.0022, 0.0015, 0.0065), 0.030);
+    injectWave(p.x, p.y, clamp(speed * 0.0032, 0.0020, 0.010), 0.030);
 
     pointers.set(e.pointerId, { ...p, t: now });
     revealInteraction();
