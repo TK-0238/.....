@@ -39,5 +39,11 @@ Allowed: HTML/CSS/JS/WebGL shader changes, procedural textures, simulation tunin
 - Committing temporary validation artifacts
 
 
+## Interaction clarity target
+- [x] Tap produces an immediately visible expanding ring
+- [x] Fast flick leaves a directional wake after release
+- [x] Interaction optics remain bounded to avoid lens/contour artifacts
+- [x] Broad simulation waves remain excluded from the reflection normal
+
 ## Latest validation basis
 Loop 3 scored **92/100**. Clean Chrome idle and forced strong-wave states were inspected visually; the previous reflective contour-band failure did not reproduce. JavaScript syntax is checked in CI before deployment, and the latest Pages deployment succeeded. Desktop mouse and iPhone-equivalent touch interaction were visually verified in earlier loops; Loop 3 does not alter those input handlers. True iPhone hardware Safari was not re-run during Loop 3.
