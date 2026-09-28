@@ -326,7 +326,7 @@ function rebuildSimulation() {
   flowTexture = makeFloatTexture(gl.RG32F, gl.RG, flowW, flowH, flowPacked);
 
   for (let i = 0; i < 5; i++) {
-    injectWave(0.2 + random() * 0.6, 0.2 + random() * 0.6, (random() - 0.5) * 0.035, 0.035);
+    injectWave(0.2 + random() * 0.6, 0.2 + random() * 0.6, (random() - 0.5) * 0.008, 0.028);
   }
 }
 
@@ -414,8 +414,8 @@ function stepWave() {
           waveHeight[i + waveW] -
           waveHeight[i] * 4;
 
-        waveVelocity[i] = (waveVelocity[i] + lap * 0.118) * 0.9915;
-        waveHeight[i] = (waveHeight[i] + waveVelocity[i]) * 0.9995;
+        waveVelocity[i] = (waveVelocity[i] + lap * 0.108) * 0.9865;
+        waveHeight[i] = (waveHeight[i] + waveVelocity[i]) * 0.9988;
       }
     }
   }
@@ -693,7 +693,7 @@ stage.addEventListener("pointerdown", (e) => {
   pointers.set(e.pointerId, { ...p, t: performance.now() });
   stage.setPointerCapture?.(e.pointerId);
   stage.classList.add("is-stirring");
-  injectWave(p.x, p.y, -0.026, 0.042);
+  injectWave(p.x, p.y, -0.012, 0.034);
   revealInteraction();
 });
 
@@ -709,7 +709,7 @@ stage.addEventListener("pointermove", (e) => {
     const speed = Math.hypot(vx, vy);
 
     injectFlow(p.x, p.y, vx, vy, 1.0);
-    injectWave(p.x, p.y, clamp(speed * 0.006, 0.004, 0.018), 0.036);
+    injectWave(p.x, p.y, clamp(speed * 0.0022, 0.0015, 0.0065), 0.030);
 
     pointers.set(e.pointerId, { ...p, t: now });
     revealInteraction();
@@ -722,7 +722,7 @@ stage.addEventListener("pointermove", (e) => {
 
     if (speed > 0.03) {
       injectFlow(p.x, p.y, vx, vy, 0.18);
-      injectWave(p.x, p.y, clamp(speed * 0.006, 0.002, 0.014), 0.028);
+      injectWave(p.x, p.y, clamp(speed * 0.002, 0.001, 0.0045), 0.024);
     }
     stage._hover = { ...p, t: now };
   }
@@ -755,7 +755,7 @@ function render(now) {
     injectWave(
       0.08 + random() * 0.84,
       0.08 + random() * 0.84,
-      (random() - 0.5) * 0.009,
+      (random() - 0.5) * 0.003,
       0.02 + random() * 0.018
     );
     nextAmbientRipple = now + 800 + random() * 1700;
