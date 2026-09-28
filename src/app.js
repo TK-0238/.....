@@ -208,18 +208,13 @@ void main() {
   vec3 transmitted = bottom * transmittance
     + waterScatter * (1.0 - transmittance) * 0.42;
 
-  float curvature = abs(signedCurvature);
-  float caustic = smoothstep(0.0018, 0.014, curvature);
-  caustic = pow(caustic, 2.8) * 0.022;
-  caustic += smoothstep(0.028, 0.075, length(fineSlope)) * 0.006;
+  float caustic = smoothstep(0.028, 0.075, length(fineSlope)) * 0.006;
   float floorShimmer = causticPattern(
     (refractedUv - 0.5) * vec2(aspect, 1.0),
     uTime
   );
   transmitted += vec3(0.82, 0.88, 0.70) * caustic;
   transmitted += vec3(0.92, 0.86, 0.64) * floorShimmer * 0.078;
-  transmitted += vec3(0.20, 0.28, 0.27)
-    * clamp(signedCurvature * 4.0, -0.016, 0.016);
 
   vec2 eyePlane = (uv - 0.5) * vec2(aspect, 1.0);
   vec3 viewDir = normalize(vec3(-eyePlane.x * 0.58, -eyePlane.y * 0.58, 1.0));
@@ -245,16 +240,14 @@ void main() {
 
   vec3 sunDir = normalize(vec3(-0.085, -0.115, 0.989));
   float sunAlignment = saturate(dot(reflectedDir, sunDir));
-  float sunGlint = pow(sunAlignment, 620.0) * 0.72;
-  sunGlint += pow(sunAlignment, 110.0) * 0.028;
+  float sunGlint = pow(sunAlignment, 900.0) * 0.50;
+  sunGlint += pow(sunAlignment, 160.0) * 0.018;
   sunGlint *= 0.42 + smoothstep(0.008, 0.060, length(slope)) * 0.88;
 
   float surfaceReflect = clamp(fresnel + 0.010, 0.028, 0.14);
   vec3 color = mix(transmitted, reflection, surfaceReflect);
   color += vec3(1.00, 0.96, 0.82) * sunGlint;
 
-  float rippleSheen = pow(waveFrontMask, 3.0) * 0.020;
-  color += vec3(0.62, 0.78, 0.76) * rippleSheen;
 
   float edgeDistance = length((uv - 0.5) * vec2(aspect * 0.82, 1.0));
   float vignette = 1.0 - smoothstep(0.34, 1.02, edgeDistance);
