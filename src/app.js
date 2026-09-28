@@ -173,16 +173,18 @@ void main() {
   vec2 narrowSlope = vec2(hl - hr, hu - hd) * 6.6;
   vec2 broadSlope = vec2(hwl - hwr, hwu - hwd) * 1.55;
   vec2 simSlope = (narrowSlope - broadSlope) * 0.58 * waveFrontMask;
-  simSlope += flow * 0.00115;
+  // Bulk flow primarily transports floating objects; only a restrained portion
+  // perturbs the optical normal. This prevents long brush-like streaks after stirring.
+  simSlope += flow * 0.00055;
   float simMagnitude = length(simSlope);
-  if (simMagnitude > 0.034) {
-    simSlope *= 0.034 / simMagnitude;
+  if (simMagnitude > 0.028) {
+    simSlope *= 0.028 / simMagnitude;
   }
 
   vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
   // Local flow gently warps only the capillary field. This makes stirred water
   // look turbulent without turning the broad simulation waves into reflection bands.
-  vec2 flowWarp = clamp(flow, vec2(-1.4), vec2(1.4)) * 0.012;
+  vec2 flowWarp = clamp(flow, vec2(-1.1), vec2(1.1)) * 0.0038;
   p += flowWarp;
 
   vec2 fineSlope = vec2(0.0);
@@ -233,7 +235,10 @@ void main() {
     uTime
   );
   transmitted += vec3(0.82, 0.88, 0.70) * caustic;
-  transmitted += vec3(0.92, 0.86, 0.64) * floorShimmer * 0.086;
+  float causticActivity = smoothstep(0.004, 0.030, length(fineSlope + simSlope * 0.28));
+  transmitted += vec3(0.92, 0.86, 0.64)
+    * floorShimmer
+    * mix(0.032, 0.055, causticActivity);
 
   // Interaction highlight is energy-gated, not curvature-colored: a soft
   // transmission shimmer makes taps/flicks readable without drawing contour lines.
@@ -598,7 +603,7 @@ function bilinear(field, x, y, w, h) {
 }
 
 function stepFlow(dt) {
-  const dtAdvect = Math.min(dt, 1 / 30) * 11.5;
+  const dtAdvect = Math.min(dt, 1 / 30) * 9.0;
 
   for (let y = 1; y < flowH - 1; y++) {
     for (let x = 1; x < flowW - 1; x++) {
@@ -616,11 +621,11 @@ function stepFlow(dt) {
         flowY[i - 1] + flowY[i + 1] + flowY[i - flowW] + flowY[i + flowW]
       ) * 0.25;
 
-      vx = mix(vx, avgX, 0.055);
-      vy = mix(vy, avgY, 0.055);
+      vx = mix(vx, avgX, 0.070);
+      vy = mix(vy, avgY, 0.070);
 
-      flowNextX[i] = clamp(vx * 0.989, -3.2, 3.2);
-      flowNextY[i] = clamp(vy * 0.989, -3.2, 3.2);
+      flowNextX[i] = clamp(vx * 0.982, -2.4, 2.4);
+      flowNextY[i] = clamp(vy * 0.982, -2.4, 2.4);
     }
   }
 
@@ -782,8 +787,8 @@ function drawLeaves(time, dt) {
     const ambientX = 0.018 + Math.sin(time * 0.00023 + leaf.phase) * 0.008;
     const ambientY = Math.cos(time * 0.00017 + leaf.phase * 1.7) * 0.006;
 
-      const targetVX = ambientX + flow[0] * 0.145;
-    const targetVY = ambientY + flow[1] * 0.145;
+    const targetVX = ambientX + flow[0] * 0.180;
+    const targetVY = ambientY + flow[1] * 0.180;
 
     leaf.vx += (targetVX - leaf.vx) * Math.min(1, dt * 2.25);
     leaf.vy += (targetVY - leaf.vy) * Math.min(1, dt * 2.25);
@@ -957,9 +962,11 @@ stage.addEventListener("pointermove", (e) => {
     const vy = clamp((p.y - hover.y) / dt, -1.4, 1.4);
     const speed = Math.hypot(vx, vy);
 
-    if (speed > 0.03) {
-      injectFlow(p.x, p.y, vx, vy, 0.18);
-      injectWave(p.x, p.y, clamp(speed * 0.0014, 0.0008, 0.0030), 0.022);
+    // Hover motion creates only a faint capillary response. Persistent current is
+    // reserved for an intentional drag, so simply moving the cursor cannot flood
+    // the whole scene with long-lived flow streaks.
+    if (speed > 0.08) {
+      injectWave(p.x, p.y, clamp(speed * 0.00075, 0.00035, 0.00135), 0.018);
     }
     stage._hover = { ...p, t: now };
   }
