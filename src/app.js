@@ -167,15 +167,16 @@ void main() {
   vec2 flow = sampleFlow(simUv);
 
   float signedCurvature = hl + hr + hu + hd - 4.0 * hc;
-  float waveFrontMask = smoothstep(0.0007, 0.0075, abs(signedCurvature));
+  float waveFrontMask = smoothstep(0.00045, 0.0058, abs(signedCurvature));
+  float waveEnergy = smoothstep(0.0012, 0.020, abs(hc) + abs(signedCurvature) * 0.80);
 
-  vec2 narrowSlope = vec2(hl - hr, hu - hd) * 6.0;
-  vec2 broadSlope = vec2(hwl - hwr, hwu - hwd) * 1.8;
-  vec2 simSlope = (narrowSlope - broadSlope) * 0.46 * waveFrontMask;
-  simSlope += flow * 0.0008;
+  vec2 narrowSlope = vec2(hl - hr, hu - hd) * 6.6;
+  vec2 broadSlope = vec2(hwl - hwr, hwu - hwd) * 1.55;
+  vec2 simSlope = (narrowSlope - broadSlope) * 0.58 * waveFrontMask;
+  simSlope += flow * 0.00115;
   float simMagnitude = length(simSlope);
-  if (simMagnitude > 0.024) {
-    simSlope *= 0.024 / simMagnitude;
+  if (simMagnitude > 0.034) {
+    simSlope *= 0.034 / simMagnitude;
   }
 
   vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
@@ -201,11 +202,11 @@ void main() {
     + 0.045 * sin(uv.y * 3.4 - 0.9);
 
   vec2 fineOffset = vec2(-fineSlope.x, fineSlope.y) * 0.052;
-  vec2 rippleOffset = vec2(-simSlope.x, simSlope.y) * 0.105;
-  vec2 refractOffset = fineOffset + rippleOffset + flow * 0.00008;
+  vec2 rippleOffset = vec2(-simSlope.x, simSlope.y) * 0.145;
+  vec2 refractOffset = fineOffset + rippleOffset + flow * 0.00010;
   float refractMagnitude = length(refractOffset);
-  if (refractMagnitude > 0.0065) {
-    refractOffset *= 0.0065 / refractMagnitude;
+  if (refractMagnitude > 0.0082) {
+    refractOffset *= 0.0082 / refractMagnitude;
   }
   vec2 refractedUv = clamp(uv + refractOffset, 0.002, 0.998);
 
@@ -226,7 +227,12 @@ void main() {
     uTime
   );
   transmitted += vec3(0.82, 0.88, 0.70) * caustic;
-  transmitted += vec3(0.92, 0.86, 0.64) * floorShimmer * 0.078;
+  transmitted += vec3(0.92, 0.86, 0.64) * floorShimmer * 0.086;
+
+  // Interaction highlight is energy-gated, not curvature-colored: a soft
+  // transmission shimmer makes taps/flicks readable without drawing contour lines.
+  float interactionShimmer = waveEnergy * smoothstep(0.004, 0.028, simMagnitude);
+  transmitted += vec3(0.58, 0.78, 0.82) * interactionShimmer * 0.060;
 
   vec2 eyePlane = (uv - 0.5) * vec2(aspect, 1.0);
   vec3 viewDir = normalize(vec3(-eyePlane.x * 0.58, -eyePlane.y * 0.58, 1.0));
@@ -256,7 +262,7 @@ void main() {
   sunGlint += pow(sunAlignment, 160.0) * 0.018;
   sunGlint *= 0.42 + smoothstep(0.008, 0.060, length(slope)) * 0.88;
 
-  float surfaceReflect = clamp(fresnel + 0.010, 0.028, 0.14);
+  float surfaceReflect = clamp(fresnel + 0.013, 0.032, 0.16);
   vec3 color = mix(transmitted, reflection, surfaceReflect);
   color += vec3(1.00, 0.96, 0.82) * sunGlint;
 
@@ -853,11 +859,14 @@ function revealInteraction() {
 
 function beginInteraction(id, x, y, pointerType = "touch") {
   const now = performance.now();
-  pointers.set(id, { x, y, t: now, rippleT: now });
+  pointers.set(id, { x, y, t: now, rippleT: now, vx: 0, vy: 0, speed: 0 });
   stage.classList.add("is-stirring");
 
   const touchLike = pointerType === "touch" || pointerType === "pen";
-  injectWave(x, y, touchLike ? -0.012 : -0.006, touchLike ? 0.028 : 0.025);
+  // Tap = short displacement pulse plus a slightly wider counter-pulse.
+  // This gives a readable expanding ring immediately, instead of waiting for drag motion.
+  injectWave(x, y, touchLike ? -0.030 : -0.018, touchLike ? 0.034 : 0.030);
+  injectWave(x, y, touchLike ? 0.013 : 0.008, touchLike ? 0.064 : 0.055);
   revealInteraction();
 }
 
@@ -872,14 +881,14 @@ function moveInteraction(id, x, y, pointerType = "touch") {
   const speed = Math.hypot(vx, vy);
   const touchLike = pointerType === "touch" || pointerType === "pen";
 
-  injectFlow(x, y, vx, vy, touchLike ? 1.75 : 1.0);
+  injectFlow(x, y, vx, vy, touchLike ? 2.05 : 1.15);
   injectWave(
     x,
     y,
     touchLike
-      ? clamp(speed * 0.0024, 0.0014, 0.0065)
-      : clamp(speed * 0.0023, 0.0014, 0.0070),
-    touchLike ? 0.038 : 0.030
+      ? clamp(speed * 0.0038, 0.0022, 0.0120)
+      : clamp(speed * 0.0031, 0.0018, 0.0095),
+    touchLike ? 0.042 : 0.034
   );
 
   let rippleT = previous.rippleT || now;
@@ -887,11 +896,26 @@ function moveInteraction(id, x, y, pointerType = "touch") {
     rippleT = now;
   }
 
-  pointers.set(id, { x, y, t: now, rippleT });
+  pointers.set(id, { x, y, t: now, rippleT, vx, vy, speed });
   revealInteraction();
 }
 
 function endInteraction(id) {
+  const previous = pointers.get(id);
+  if (previous) {
+    const speed = previous.speed || 0;
+    if (speed > 0.18) {
+      const flick = clamp(speed, 0, 2.6);
+      // Release a compact trailing impulse in the flick direction so fast gestures
+      // have a visible wake even after the finger leaves the glass.
+      const tailX = clamp(previous.x + previous.vx * 0.022, 0, 1);
+      const tailY = clamp(previous.y + previous.vy * 0.022, 0, 1);
+      injectFlow(previous.x, previous.y, previous.vx, previous.vy, 1.10);
+      injectWave(previous.x, previous.y, clamp(flick * 0.0046, 0.0030, 0.0125), 0.040);
+      injectWave(tailX, tailY, clamp(-flick * 0.0024, -0.0065, -0.0018), 0.030);
+    }
+  }
+
   pointers.delete(id);
   if (pointers.size === 0) stage.classList.remove("is-stirring");
 }
