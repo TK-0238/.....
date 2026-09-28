@@ -191,10 +191,15 @@ void main() {
   fineSlope += waveSlope(p, vec2(0.71, 1.0), 73.0, 0.43, 0.0058, uTime);
   fineSlope += waveSlope(p, vec2(-1.0, 0.58), 94.0, -0.34, 0.0038, uTime);
 
-  // Reflection uses the fine capillary normal only. Interactive waves are kept
-  // primarily in transmission/refraction so strong stirring does not create
-  // screen-wide reflective contour bands.
-  vec2 slope = fineSlope;
+  // Reflection keeps the capillary field dominant, but lets only a small,
+  // energy-gated portion of the interactive slope affect the normal. This restores
+  // physically readable moving highlights without reintroducing broad contour bands.
+  vec2 interactiveReflectSlope = simSlope * (0.18 + waveEnergy * 0.14);
+  vec2 slope = fineSlope + interactiveReflectSlope;
+  float slopeMagnitude = length(slope);
+  if (slopeMagnitude > 0.050) {
+    slope *= 0.050 / slopeMagnitude;
+  }
   vec3 normal = normalize(vec3(-slope.x, slope.y, 1.0));
 
   float bedDepth = 0.50
@@ -221,7 +226,8 @@ void main() {
   vec3 transmitted = bottom * transmittance
     + waterScatter * (1.0 - transmittance) * 0.42;
 
-  float caustic = smoothstep(0.028, 0.075, length(fineSlope)) * 0.006;
+  float causticSlope = length(fineSlope + simSlope * 0.32);
+  float caustic = smoothstep(0.020, 0.072, causticSlope) * 0.0085;
   float floorShimmer = causticPattern(
     (refractedUv - 0.5) * vec2(aspect, 1.0),
     uTime
@@ -231,8 +237,8 @@ void main() {
 
   // Interaction highlight is energy-gated, not curvature-colored: a soft
   // transmission shimmer makes taps/flicks readable without drawing contour lines.
-  float interactionShimmer = waveEnergy * smoothstep(0.004, 0.028, simMagnitude);
-  transmitted += vec3(0.58, 0.78, 0.82) * interactionShimmer * 0.060;
+  float interactionShimmer = waveEnergy * smoothstep(0.0035, 0.026, simMagnitude);
+  transmitted += vec3(0.56, 0.76, 0.82) * interactionShimmer * 0.072;
 
   vec2 eyePlane = (uv - 0.5) * vec2(aspect, 1.0);
   vec3 viewDir = normalize(vec3(-eyePlane.x * 0.58, -eyePlane.y * 0.58, 1.0));
@@ -258,9 +264,9 @@ void main() {
 
   vec3 sunDir = normalize(vec3(-0.085, -0.115, 0.989));
   float sunAlignment = saturate(dot(reflectedDir, sunDir));
-  float sunGlint = pow(sunAlignment, 900.0) * 0.50;
-  sunGlint += pow(sunAlignment, 160.0) * 0.018;
-  sunGlint *= 0.42 + smoothstep(0.008, 0.060, length(slope)) * 0.88;
+  float sunGlint = pow(sunAlignment, 760.0) * 0.54;
+  sunGlint += pow(sunAlignment, 130.0) * 0.022;
+  sunGlint *= 0.40 + smoothstep(0.007, 0.052, length(slope)) * 0.98;
 
   float surfaceReflect = clamp(fresnel + 0.013, 0.032, 0.16);
   vec3 color = mix(transmitted, reflection, surfaceReflect);
@@ -776,11 +782,11 @@ function drawLeaves(time, dt) {
     const ambientX = 0.018 + Math.sin(time * 0.00023 + leaf.phase) * 0.008;
     const ambientY = Math.cos(time * 0.00017 + leaf.phase * 1.7) * 0.006;
 
-    const targetVX = ambientX + flow[0] * 0.115;
-    const targetVY = ambientY + flow[1] * 0.115;
+      const targetVX = ambientX + flow[0] * 0.145;
+    const targetVY = ambientY + flow[1] * 0.145;
 
-    leaf.vx += (targetVX - leaf.vx) * Math.min(1, dt * 1.9);
-    leaf.vy += (targetVY - leaf.vy) * Math.min(1, dt * 1.9);
+    leaf.vx += (targetVX - leaf.vx) * Math.min(1, dt * 2.25);
+    leaf.vy += (targetVY - leaf.vy) * Math.min(1, dt * 2.25);
     leaf.vx = clamp(leaf.vx, -0.34, 0.34);
     leaf.vy = clamp(leaf.vy, -0.34, 0.34);
 
