@@ -166,7 +166,8 @@ void main() {
   color = mix(color, sky, fresnel);
   color += vec3(0.72, 0.95, 0.90) * sparkle;
 
-  float edge = smoothstep(0.72, 0.14, length((uv - 0.5) * vec2(uResolution.x / uResolution.y, 1.0)));
+  float edgeDistance = length((uv - 0.5) * vec2(uResolution.x / uResolution.y, 1.0));
+  float edge = 1.0 - smoothstep(0.14, 0.72, edgeDistance);
   color *= mix(0.83, 1.0, edge);
 
   color = color / (color + vec3(0.92));
