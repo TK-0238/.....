@@ -478,7 +478,7 @@ function makePebbleTexture() {
     ctx.globalAlpha = 0.10;
     ctx.fillStyle = "rgba(255,255,244,0.65)";
     ctx.beginPath();
-    ctx.ellipse(-rx * 0.30, -ry * 0.34, rx * 0.16, Math.max(0.8, ry * 0.09), -0.35, 0, TAU);
+    ctx.ellipse(-rx * (0.22 + random() * 0.16), -ry * (0.26 + random() * 0.18), rx * (0.10 + random() * 0.07), Math.max(0.7, ry * (0.055 + random() * 0.05)), -0.55 + random() * 0.35, 0, TAU);
     ctx.fill();
     ctx.globalAlpha = 1;
 
@@ -936,6 +936,8 @@ function spawnLeaf(index, edge = false) {
   leaf.scale = 0.30 + random() * 0.26;
   leaf.sprite = leafSprites[Math.floor(random() * leafSprites.length)];
   leaf.phase = random() * TAU;
+  leaf.tone = 0.90 + random() * 0.15;
+  leaf.alpha = 0.88 + random() * 0.08;
   leaves[index] = leaf;
 }
 
@@ -999,8 +1001,10 @@ function drawLeaves(time, dt) {
     const perspective = 0.90 + Math.cos(time * 0.0012 + leaf.phase) * 0.055;
     const lateralRoll = 1.0 + Math.sin(time * 0.0010 + leaf.phase * 1.3) * 0.035;
     ctx.scale(leaf.scale * lateralRoll, leaf.scale * perspective);
-    ctx.globalAlpha = 0.93;
+    ctx.globalAlpha = leaf.alpha;
+    ctx.filter = "brightness(" + leaf.tone + ") saturate(" + (0.88 + (leaf.tone - 0.90) * 0.9) + ")";
     ctx.drawImage(leaf.sprite, -80, -95);
+    ctx.filter = "none";
     ctx.restore();
   }
 }
