@@ -984,15 +984,24 @@ function drawLeaves(time, dt) {
     const bob = Math.sin(time * 0.0018 + leaf.phase) * 1.5;
 
     ctx.save();
-    ctx.translate(x + g[0] * 130, y + 5 + g[1] * 110);
-    ctx.rotate(leaf.angle + 0.08);
-    ctx.scale(leaf.scale * 0.90, leaf.scale * 0.44);
-    ctx.globalAlpha = 0.18;
-    ctx.filter = "blur(3px)";
-    ctx.fillStyle = "#001411";
+    ctx.translate(x + g[0] * 110, y + 2.5 + g[1] * 95);
+    ctx.rotate(leaf.angle + 0.05);
+    ctx.scale(leaf.scale * 0.88, leaf.scale * 0.32);
+    ctx.globalAlpha = 0.085;
+    ctx.filter = "blur(2px)";
+    ctx.fillStyle = "#071b16";
     ctx.beginPath();
-    ctx.ellipse(0, 0, 32, 47, 0, 0, TAU);
+    ctx.ellipse(0, 0, 29, 43, 0, 0, TAU);
     ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(x - g[0] * 45, y + 3 - g[1] * 40);
+    ctx.rotate(leaf.angle + 0.04);
+    ctx.scale(leaf.scale * 0.78, leaf.scale * 0.20);
+    ctx.globalAlpha = 0.045;
+    ctx.filter = "blur(1.8px)";
+    ctx.drawImage(leaf.sprite, -80, -95);
     ctx.restore();
 
     ctx.save();
