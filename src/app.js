@@ -259,7 +259,7 @@ void main() {
   // Interaction highlight is energy-gated, not curvature-colored: a soft
   // transmission shimmer makes taps/flicks readable without drawing contour lines.
   float interactionShimmer = waveEnergy * smoothstep(0.0035, 0.026, simMagnitude);
-  transmitted += vec3(0.56, 0.76, 0.82) * interactionShimmer * 0.082;
+  transmitted += vec3(0.56, 0.76, 0.82) * interactionShimmer * 0.074;
 
   vec2 eyePlane = (uv - 0.5) * vec2(aspect, 1.0);
   vec3 viewDir = normalize(vec3(-eyePlane.x * 0.58, -eyePlane.y * 0.58, 1.0));
@@ -293,12 +293,14 @@ void main() {
 
   vec3 sunDir = normalize(vec3(-0.085, -0.115, 0.989));
   float sunAlignment = saturate(dot(reflectedDir, sunDir));
-  float sunGlint = pow(sunAlignment, 760.0) * 0.50;
-  sunGlint += pow(sunAlignment, 140.0) * 0.025;
-  sunGlint += pow(sunAlignment, 34.0) * roughness * 0.010;
-  sunGlint *= 0.32 + smoothstep(0.004, 0.034, length(slope)) * 0.74;
+  float sunGlint = pow(sunAlignment, 760.0) * 0.46;
+  sunGlint += pow(sunAlignment, 150.0) * 0.027;
+  sunGlint += pow(sunAlignment, 38.0) * roughness * 0.009;
+  sunGlint *= 0.30 + smoothstep(0.004, 0.034, length(slope)) * 0.72;
 
-  float surfaceReflect = clamp(fresnel + 0.010, 0.028, 0.13);
+  // Slightly bias reflectance toward a calmer shallow-water response while
+  // preserving stronger grazing-angle reflection through the Fresnel term.
+  float surfaceReflect = clamp(fresnel + 0.0085, 0.026, 0.125);
   vec3 color = mix(transmitted, reflection, surfaceReflect);
   color += vec3(1.00, 0.96, 0.82) * sunGlint;
 
@@ -954,11 +956,16 @@ function drawLeaves(time, dt) {
     const ambientX = 0.018 + Math.sin(time * 0.00023 + leaf.phase) * 0.008;
     const ambientY = Math.cos(time * 0.00017 + leaf.phase * 1.7) * 0.006;
 
-    const targetVX = ambientX + flow[0] * 0.180;
-    const targetVY = ambientY + flow[1] * 0.180;
+      const flowSpeed = Math.hypot(flow[0], flow[1]);
+    const flowCoupling = 0.165 + Math.min(0.035, flowSpeed * 0.018);
+    const targetVX = ambientX + flow[0] * flowCoupling;
+    const targetVY = ambientY + flow[1] * flowCoupling;
 
-    leaf.vx += (targetVX - leaf.vx) * Math.min(1, dt * 2.25);
-    leaf.vy += (targetVY - leaf.vy) * Math.min(1, dt * 2.25);
+    // Floating leaves lag the water slightly because of surface drag and inertia.
+    // This keeps them from feeling mechanically welded to the velocity field.
+    const response = 1.85 + Math.min(0.45, flowSpeed * 0.18);
+    leaf.vx += (targetVX - leaf.vx) * Math.min(1, dt * response);
+    leaf.vy += (targetVY - leaf.vy) * Math.min(1, dt * response);
     leaf.vx = clamp(leaf.vx, -0.34, 0.34);
     leaf.vy = clamp(leaf.vy, -0.34, 0.34);
 
