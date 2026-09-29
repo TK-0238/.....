@@ -122,3 +122,38 @@ This file is updated after each improvement loop with:
 - Remaining: true iPhone Safari hardware rendering was not independently observable from the connected Mac in this final loop. The iOS-specific touch handlers were not changed by Loops 6–12; a stricter automated iPhone-UA touch re-test was attempted twice but blocked by the remote-operation safety gate.
 - Next: **user intervention required only for final true-hardware iPhone Safari visual confirmation.** No further code changes are justified unless that hardware check exposes a specific defect.
 
+## Loop 15
+- Score: **95/100**
+- Main gap: Loop 14 improved the material detail, but visual inspection still showed a texture-like pebble density and leaves that read too uniformly colored.
+- Changes: reduced pebble count, widened pebble size/aspect distribution, added organic leaf blemishes and edge wear, tightened leaf contact shadow, and introduced a small roll/perspective variation.
+- Verification: Pages CI succeeded and a fresh desktop Chrome capture was visually inspected.
+- Current progress: riverbed spacing and leaf individuality improved.
+- Remaining: pebble highlights remained a little uniform and leaf color still read too consistent.
+- Next: randomize pebble specular response and per-leaf tone.
+
+## Loop 16
+- Score: **95/100**
+- Main gap: some pebbles still looked plastically highlighted; green leaves shared too similar a tone.
+- Changes: randomized pebble highlight position/intensity/shape; added per-leaf brightness/saturation/alpha variation.
+- Verification: Pages CI succeeded; fresh idle render visually inspected.
+- Current progress: material repetition reduced noticeably.
+- Remaining: leaf shadow still read slightly like a hovering-object shadow.
+- Next: convert the broad leaf shadow into tight contact occlusion plus a faint surface reflection.
+
+## Loop 17
+- Score: **96/100**
+- Main gap: floating leaves needed stronger water-surface anchoring.
+- Changes: replaced broad leaf shadow with tighter contact occlusion and added a very faint compressed leaf reflection below the surface.
+- Verification: Pages CI succeeded; idle desktop render visually inspected.
+- Current progress: leaves now read closer to floating on the surface rather than hovering above it.
+- Remaining: verify that the revised leaf rendering still behaves correctly during stirring and that pebble refraction remains local.
+- Next: run interactive drag verification.
+
+## Loop 18
+- Score: **96/100 — PASS**
+- Main gap: final interaction regression check after material realism changes.
+- Changes: no simulation changes; validation-only loop.
+- Verification: desktop drag inspected immediately and ~250 ms after release. Pebble refraction remained localized, leaves continued moving with the flow, and prior catastrophic artifacts did not return. Live browser reload returned `RUNTIME_ERRORS=[]`. GitHub Pages deployment for `dad8be06581763209a0eb0423810daa26cf83cd5` succeeded.
+- Current progress: the requested water, pebble, and leaf behavior meet the current >=95 acceptance target with no detected runtime errors.
+- Remaining: true iPhone Safari hardware visual confirmation remains external to the connected desktop environment.
+- Next: stop code changes unless hardware validation exposes a specific defect.
