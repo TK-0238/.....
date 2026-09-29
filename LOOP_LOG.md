@@ -157,3 +157,12 @@ This file is updated after each improvement loop with:
 - Current progress: the requested water, pebble, and leaf behavior meet the current >=95 acceptance target with no detected runtime errors.
 - Remaining: true iPhone Safari hardware visual confirmation remains external to the connected desktop environment.
 - Next: stop code changes unless hardware validation exposes a specific defect.
+
+## Loop 19
+- Score: **97/100 — PASS**
+- Main gap: the Loop 18 scene was already above threshold, but reflection still read slightly bright in calm areas and leaf motion remained a little too tightly coupled to the flow field.
+- Changes: reduced sun-glint intensity and surface-reflection bias by a restrained amount; reduced interaction shimmer slightly; replaced fixed leaf flow coupling with flow-dependent coupling and added slower inertial response.
+- Verification: GitHub Pages CI for `e41b422baaf7519b628eca52791b7b84ead961d7` succeeded. Idle desktop render and drag captures immediately and ~300 ms after release were visually inspected. Water remained visible, pebble refraction stayed localized, leaves still moved with the generated current, and no giant-lens or screen-wide band artifact returned. Live-browser reload produced `RUNTIME_ERRORS=[]`.
+- Current progress: visual realism improved without changing the stable wave/refraction solver. Current evaluated score is 97/100, above the requested >=95 threshold.
+- Remaining: true iPhone Safari hardware visual confirmation remains the only external verification item.
+- Next: stop code changes unless hardware validation exposes a concrete defect.
