@@ -102,3 +102,25 @@ The deployed desktop build is visually stable under idle, single-drag, delayed-r
 - Stability / no visual or runtime errors: **5/5**
 
 **Total: 96/100 — PASS**
+
+
+## Loop 19 realism refinement
+- [x] GitHub Pages CI for `e41b422baaf7519b628eca52791b7b84ead961d7` succeeded.
+- [x] Idle desktop render visually inspected.
+- [x] Drag render inspected immediately and ~300 ms after release.
+- [x] Reflection/glare softened without losing visible water presence.
+- [x] Floating leaves now include slightly slower, flow-dependent inertia instead of mechanically matching the flow field.
+- [x] Pebble refraction remains local and readable.
+- [x] No giant lens, screen-wide deformation, or hard rectangular artifact reproduced.
+- [x] Live-browser reload returned `RUNTIME_ERRORS=[]`.
+
+### Loop 19 score
+- Water motion / wave propagation: **24/25**
+- Reflection / Fresnel / highlights: **19/20**
+- Pebble refraction / optical distortion: **20/20**
+- Caustics / depth / transparency: **9/10**
+- Leaf advection + material realism: **10/10**
+- Desktop + touch interaction: **10/10**
+- Stability / no visual or runtime errors: **5/5**
+
+**Total: 97/100 — PASS**
