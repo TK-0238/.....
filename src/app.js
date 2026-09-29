@@ -388,11 +388,11 @@ function makePebbleTexture() {
     ["#8d806f", "#62594d", "#3f3933"],
   ];
 
-  for (let i = 0; i < 560; i++) {
+  for (let i = 0; i < 430; i++) {
     const x = random() * size;
     const y = random() * size;
-    const rx = 5.5 + random() * 19.5;
-    const ry = rx * (0.47 + random() * 0.40);
+    const rx = 4.0 + Math.pow(random(), 1.55) * 24.0;
+    const ry = rx * (0.42 + random() * 0.46);
     const rot = random() * TAU;
     const colors = palette[Math.floor(random() * palette.length)];
     const count = 10 + Math.floor(random() * 4);
@@ -475,7 +475,7 @@ function makePebbleTexture() {
     ctx.stroke();
 
     // Small directional highlight, different per pebble.
-    ctx.globalAlpha = 0.13;
+    ctx.globalAlpha = 0.10;
     ctx.fillStyle = "rgba(255,255,244,0.65)";
     ctx.beginPath();
     ctx.ellipse(-rx * 0.30, -ry * 0.34, rx * 0.16, Math.max(0.8, ry * 0.09), -0.35, 0, TAU);
@@ -884,6 +884,34 @@ function makeLeafSprite(colors) {
   ctx.quadraticCurveTo(5, 69, 9, 76);
   ctx.stroke();
 
+  // Organic wear: tiny translucent blemishes and a few uneven edge marks.
+  ctx.save();
+  leafPath();
+  ctx.clip();
+  for (let i = 0; i < 7; i++) {
+    const bx = (random() - 0.5) * 44;
+    const by = (random() - 0.5) * 90;
+    ctx.globalAlpha = 0.05 + random() * 0.08;
+    ctx.fillStyle = random() > 0.55 ? "#5c6e35" : "#d6c887";
+    ctx.beginPath();
+    ctx.ellipse(bx, by, 1.2 + random() * 2.4, 0.7 + random() * 1.5, random() * TAU, 0, TAU);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  ctx.strokeStyle = "rgba(25,48,26,0.26)";
+  ctx.lineWidth = 0.7;
+  for (let i = 0; i < 4; i++) {
+    const sy = -38 + random() * 76;
+    const side = random() > 0.5 ? 1 : -1;
+    const ex = side * (31 + random() * 8);
+    ctx.beginPath();
+    ctx.moveTo(side * 24, sy);
+    ctx.quadraticCurveTo(side * 30, sy + 2, ex, sy + 5 + random() * 4);
+    ctx.stroke();
+  }
+
   return c;
 }
 
@@ -954,22 +982,23 @@ function drawLeaves(time, dt) {
     const bob = Math.sin(time * 0.0018 + leaf.phase) * 1.5;
 
     ctx.save();
-    ctx.translate(x + g[0] * 130, y + 8 + g[1] * 110);
+    ctx.translate(x + g[0] * 130, y + 5 + g[1] * 110);
     ctx.rotate(leaf.angle + 0.08);
-    ctx.scale(leaf.scale * 0.92, leaf.scale * 0.48);
+    ctx.scale(leaf.scale * 0.90, leaf.scale * 0.44);
     ctx.globalAlpha = 0.18;
-    ctx.filter = "blur(4px)";
+    ctx.filter = "blur(3px)";
     ctx.fillStyle = "#001411";
     ctx.beginPath();
-    ctx.ellipse(0, 0, 36, 52, 0, 0, TAU);
+    ctx.ellipse(0, 0, 32, 47, 0, 0, TAU);
     ctx.fill();
     ctx.restore();
 
     ctx.save();
     ctx.translate(x, y + bob);
     ctx.rotate(leaf.angle + g[0] * 2.8);
-    const perspective = 0.92 + Math.cos(time * 0.0012 + leaf.phase) * 0.06;
-    ctx.scale(leaf.scale, leaf.scale * perspective);
+    const perspective = 0.90 + Math.cos(time * 0.0012 + leaf.phase) * 0.055;
+    const lateralRoll = 1.0 + Math.sin(time * 0.0010 + leaf.phase * 1.3) * 0.035;
+    ctx.scale(leaf.scale * lateralRoll, leaf.scale * perspective);
     ctx.globalAlpha = 0.93;
     ctx.drawImage(leaf.sprite, -80, -95);
     ctx.restore();
