@@ -345,21 +345,33 @@ function makePebbleTexture() {
   c.width = c.height = size;
   const ctx = c.getContext("2d");
 
+  // Layered sediment bed: coarse color variation first, then fine mineral grains.
   const bg = ctx.createLinearGradient(0, 0, size, size);
-  bg.addColorStop(0, "#777466");
-  bg.addColorStop(0.48, "#66685d");
-  bg.addColorStop(1, "#505b57");
+  bg.addColorStop(0, "#807b6d");
+  bg.addColorStop(0.42, "#6a6d61");
+  bg.addColorStop(1, "#4f5a56");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, size, size);
 
-  // Fine sand and mineral grains.
-  for (let i = 0; i < 11000; i++) {
+  for (let i = 0; i < 260; i++) {
     const x = random() * size;
     const y = random() * size;
-    const r = 0.25 + random() * 1.1;
-    const v = 74 + Math.floor(random() * 72);
-    ctx.globalAlpha = 0.045 + random() * 0.11;
-    ctx.fillStyle = "rgb(" + v + ", " + Math.max(45, v - 4) + ", " + Math.max(42, v - 12) + ")";
+    const r = 14 + random() * 52;
+    const warm = random() * 0.5;
+    const grd = ctx.createRadialGradient(x, y, 0, x, y, r);
+    grd.addColorStop(0, warm > 0.5 ? "rgba(151,132,101,0.050)" : "rgba(89,120,116,0.046)");
+    grd.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = grd;
+    ctx.fillRect(x-r, y-r, r*2, r*2);
+  }
+
+  for (let i = 0; i < 15000; i++) {
+    const x = random() * size;
+    const y = random() * size;
+    const r = 0.18 + random() * 1.05;
+    const v = 65 + Math.floor(random() * 86);
+    ctx.globalAlpha = 0.035 + random() * 0.095;
+    ctx.fillStyle = "rgb(" + v + "," + Math.max(42, v - 4) + "," + Math.max(38, v - 13) + ")";
     ctx.beginPath();
     ctx.arc(x, y, r, 0, TAU);
     ctx.fill();
@@ -367,30 +379,31 @@ function makePebbleTexture() {
   ctx.globalAlpha = 1;
 
   const palette = [
-    ["#9b9a8b", "#666a62", "#3d4542"],
-    ["#ad987b", "#776753", "#493f35"],
-    ["#87908b", "#596763", "#34433f"],
-    ["#7f8f91", "#52666a", "#314449"],
-    ["#a3866b", "#6b5849", "#423a33"],
-    ["#81848a", "#585e66", "#373e46"],
+    ["#a5a18f", "#74766b", "#474f4b"],
+    ["#b49a79", "#806a51", "#4b4035"],
+    ["#8e9994", "#5f6f69", "#364740"],
+    ["#83959a", "#586d72", "#33484d"],
+    ["#aa8767", "#755c48", "#473a31"],
+    ["#878c95", "#5a616c", "#373f4a"],
+    ["#8d806f", "#62594d", "#3f3933"],
   ];
 
-  for (let i = 0; i < 650; i++) {
+  for (let i = 0; i < 560; i++) {
     const x = random() * size;
     const y = random() * size;
-    const rx = 4.5 + random() * 18;
-    const ry = rx * (0.52 + random() * 0.42);
+    const rx = 5.5 + random() * 19.5;
+    const ry = rx * (0.47 + random() * 0.40);
     const rot = random() * TAU;
     const colors = palette[Math.floor(random() * palette.length)];
-    const count = 9;
+    const count = 10 + Math.floor(random() * 4);
     const pts = [];
 
     for (let k = 0; k < count; k++) {
       const a = (k / count) * TAU;
-      const wobble = 0.82 + random() * 0.25;
+      const wobble = 0.84 + random() * 0.22;
       pts.push([
         Math.cos(a) * rx * wobble,
-        Math.sin(a) * ry * (0.90 + random() * 0.18),
+        Math.sin(a) * ry * (0.91 + random() * 0.15),
       ]);
     }
 
@@ -398,62 +411,88 @@ function makePebbleTexture() {
     ctx.translate(x, y);
     ctx.rotate(rot);
 
-    ctx.beginPath();
-    for (let k = 0; k < count; k++) {
-      const p0 = pts[k];
-      const p1 = pts[(k + 1) % count];
-      const mx = (p0[0] + p1[0]) * 0.5;
-      const my = (p0[1] + p1[1]) * 0.5;
-      if (k === 0) ctx.moveTo(mx, my);
-      ctx.quadraticCurveTo(p1[0], p1[1], mx, my);
-    }
-    ctx.closePath();
+    const pathStone = () => {
+      ctx.beginPath();
+      for (let k = 0; k < count; k++) {
+        const p0 = pts[k];
+        const p1 = pts[(k + 1) % count];
+        const mx = (p0[0] + p1[0]) * 0.5;
+        const my = (p0[1] + p1[1]) * 0.5;
+        if (k === 0) ctx.moveTo(mx, my);
+        ctx.quadraticCurveTo(p1[0], p1[1], mx, my);
+      }
+      ctx.closePath();
+    };
 
-    ctx.shadowColor = "rgba(8, 18, 18, 0.24)";
-    ctx.shadowBlur = 2.6;
-    ctx.shadowOffsetX = 1.2;
-    ctx.shadowOffsetY = 2.1;
+    // Soft contact occlusion under the pebble.
+    ctx.save();
+    ctx.translate(1.7, 2.7);
+    ctx.filter = "blur(1.7px)";
+    ctx.globalAlpha = 0.28;
+    ctx.fillStyle = "#15201d";
+    pathStone();
+    ctx.fill();
+    ctx.restore();
 
-    const g = ctx.createRadialGradient(-rx * 0.32, -ry * 0.44, 0.5, 0, 0, rx * 1.05);
+    pathStone();
+    const g = ctx.createRadialGradient(-rx * 0.38, -ry * 0.48, 0.8, rx * 0.10, ry * 0.14, rx * 1.15);
     g.addColorStop(0, colors[0]);
-    g.addColorStop(0.50, colors[1]);
+    g.addColorStop(0.46, colors[1]);
     g.addColorStop(1, colors[2]);
     ctx.fillStyle = g;
     ctx.fill();
 
-    ctx.shadowColor = "transparent";
-    ctx.strokeStyle = "rgba(236, 239, 224, 0.11)";
-    ctx.lineWidth = 0.7;
-    ctx.stroke();
+    // Wet rim and micro specular response.
+    ctx.save();
+    pathStone();
+    ctx.clip();
 
-    ctx.globalAlpha = 0.18;
-    ctx.fillStyle = "#f0ead4";
-    const flecks = 1 + Math.floor(random() * 4);
-    for (let k = 0; k < flecks; k++) {
+    const sheen = ctx.createLinearGradient(-rx, -ry, rx, ry);
+    sheen.addColorStop(0.0, "rgba(255,255,244,0.18)");
+    sheen.addColorStop(0.22, "rgba(255,255,244,0.05)");
+    sheen.addColorStop(0.65, "rgba(255,255,244,0)");
+    sheen.addColorStop(1.0, "rgba(6,18,18,0.08)");
+    ctx.fillStyle = sheen;
+    ctx.fillRect(-rx * 1.2, -ry * 1.2, rx * 2.4, ry * 2.4);
+
+    // Fine mottling within each stone breaks the plastic gradient look.
+    for (let m = 0; m < 5; m++) {
+      const mx = (random() - 0.5) * rx * 1.2;
+      const my = (random() - 0.5) * ry * 1.0;
+      const mr = 0.6 + random() * 1.8;
+      ctx.globalAlpha = 0.08 + random() * 0.10;
+      ctx.fillStyle = random() > 0.5 ? "#efe7d1" : "#1d2b29";
       ctx.beginPath();
-      ctx.arc(
-        (random() - 0.5) * rx * 0.9,
-        (random() - 0.5) * ry * 0.75,
-        0.35 + random() * 0.8,
-        0,
-        TAU
-      );
+      ctx.arc(mx, my, mr, 0, TAU);
       ctx.fill();
     }
     ctx.globalAlpha = 1;
     ctx.restore();
+
+    ctx.strokeStyle = "rgba(239,242,229,0.10)";
+    ctx.lineWidth = 0.65;
+    pathStone();
+    ctx.stroke();
+
+    // Small directional highlight, different per pebble.
+    ctx.globalAlpha = 0.13;
+    ctx.fillStyle = "rgba(255,255,244,0.65)";
+    ctx.beginPath();
+    ctx.ellipse(-rx * 0.30, -ry * 0.34, rx * 0.16, Math.max(0.8, ry * 0.09), -0.35, 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.restore();
   }
 
+  // Bed-wide depth vignette remains subtle so refraction, not texture shading,
+  // is responsible for the moving underwater look.
   const shade = ctx.createRadialGradient(
-    size * 0.48,
-    size * 0.38,
-    size * 0.08,
-    size * 0.5,
-    size * 0.5,
-    size * 0.78
+    size * 0.46, size * 0.36, size * 0.05,
+    size * 0.5, size * 0.5, size * 0.80
   );
-  shade.addColorStop(0, "rgba(255,255,245,0.035)");
-  shade.addColorStop(1, "rgba(3,28,28,0.20)");
+  shade.addColorStop(0, "rgba(255,255,245,0.028)");
+  shade.addColorStop(1, "rgba(3,25,25,0.17)");
   ctx.fillStyle = shade;
   ctx.fillRect(0, 0, size, size);
 
@@ -731,58 +770,119 @@ function uploadSimulation() {
 
 function makeLeafSprite(colors) {
   const c = document.createElement("canvas");
-  c.width = 128;
-  c.height = 160;
+  c.width = 160;
+  c.height = 190;
   const ctx = c.getContext("2d");
 
-  ctx.translate(64, 78);
-  ctx.rotate(-0.08);
+  ctx.translate(80, 90);
+  ctx.rotate(-0.07);
 
-  ctx.shadowColor = "rgba(0, 20, 15, 0.38)";
-  ctx.shadowBlur = 9;
-  ctx.shadowOffsetY = 5;
+  // Contact shadow is intentionally subtle: the leaf is floating on the surface,
+  // not hovering high above it.
+  ctx.shadowColor = "rgba(0, 18, 14, 0.24)";
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetY = 3;
 
-  const g = ctx.createLinearGradient(-36, -56, 32, 58);
+  const leafPath = () => {
+    ctx.beginPath();
+    ctx.moveTo(0, -70);
+    ctx.bezierCurveTo(22, -61, 40, -38, 42, -10);
+    ctx.bezierCurveTo(44, 18, 28, 47, 4, 66);
+    ctx.bezierCurveTo(-22, 50, -41, 22, -42, -9);
+    ctx.bezierCurveTo(-43, -37, -23, -60, 0, -70);
+    ctx.closePath();
+  };
+
+  leafPath();
+  const g = ctx.createLinearGradient(-34, -58, 34, 62);
   g.addColorStop(0, colors[0]);
-  g.addColorStop(0.52, colors[1]);
+  g.addColorStop(0.47, colors[1]);
   g.addColorStop(1, colors[2]);
   ctx.fillStyle = g;
-
-  ctx.beginPath();
-  ctx.moveTo(0, -62);
-  ctx.bezierCurveTo(37, -45, 44, 5, 6, 60);
-  ctx.bezierCurveTo(-34, 36, -48, -17, 0, -62);
-  ctx.closePath();
   ctx.fill();
 
   ctx.shadowColor = "transparent";
-  ctx.strokeStyle = "rgba(226, 255, 210, 0.40)";
-  ctx.lineWidth = 2;
+
+  // Translucent rim and slight edge darkening improve thickness perception.
+  ctx.save();
+  leafPath();
+  ctx.clip();
+  const edge = ctx.createRadialGradient(-12, -18, 5, 0, 0, 68);
+  edge.addColorStop(0, "rgba(255,255,230,0.05)");
+  edge.addColorStop(0.72, "rgba(255,255,230,0)");
+  edge.addColorStop(1, "rgba(8,24,14,0.18)");
+  ctx.fillStyle = edge;
+  ctx.fillRect(-50, -78, 100, 150);
+
+  // Fine organic mottling.
+  for (let i = 0; i < 90; i++) {
+    const x = (random() - 0.5) * 62;
+    const y = (random() - 0.5) * 104;
+    const widthAtY = 38 * (1 - Math.pow(Math.min(1, Math.abs(y) / 72), 1.65));
+    if (Math.abs(x) > widthAtY) continue;
+    ctx.globalAlpha = 0.025 + random() * 0.045;
+    ctx.fillStyle = random() > 0.55 ? "#f0f2c8" : "#142a1b";
+    ctx.beginPath();
+    ctx.arc(x, y, 0.35 + random() * 0.9, 0, TAU);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  // Main vein is tapered visually by layering strokes.
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "rgba(226,244,191,0.46)";
+  ctx.lineWidth = 2.2;
   ctx.beginPath();
-  ctx.moveTo(1, -51);
-  ctx.quadraticCurveTo(0, 3, 5, 55);
+  ctx.moveTo(0, -58);
+  ctx.quadraticCurveTo(-1, 3, 4, 59);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(44,78,42,0.34)";
+  ctx.lineWidth = 0.65;
+  ctx.beginPath();
+  ctx.moveTo(1, -57);
+  ctx.quadraticCurveTo(0, 4, 5, 58);
   ctx.stroke();
 
-  ctx.lineWidth = 1.2;
-  ctx.globalAlpha = 0.42;
-  for (let i = -35; i <= 35; i += 10) {
+  // Curved alternating side veins.
+  for (let i = -42, n = 0; i <= 40; i += 9, n++) {
     const yy = i;
-    const reach = 24 * (1 - Math.abs(yy) / 62);
+    const t = 1 - Math.abs(yy) / 72;
+    const reach = 29 * Math.max(0.12, t);
+    const lift = 6 + (1 - t) * 3;
+    ctx.strokeStyle = "rgba(219,239,184," + (0.22 + t * 0.16) + ")";
+    ctx.lineWidth = 0.75 + t * 0.35;
+
     ctx.beginPath();
     ctx.moveTo(2, yy);
-    ctx.quadraticCurveTo(reach * 0.48, yy + 6, reach, yy + 12);
+    ctx.quadraticCurveTo(reach * 0.46, yy + lift * 0.35, reach, yy + lift);
     ctx.stroke();
+
     ctx.beginPath();
-    ctx.moveTo(1, yy + 3);
-    ctx.quadraticCurveTo(-reach * 0.5, yy + 10, -reach, yy + 15);
+    ctx.moveTo(1, yy + 2);
+    ctx.quadraticCurveTo(-reach * 0.48, yy + lift * 0.40, -reach, yy + lift * 1.05);
     ctx.stroke();
   }
 
-  ctx.globalAlpha = 0.72;
-  ctx.fillStyle = "rgba(255,255,230,0.42)";
+  // Small specular streak following the convex surface.
+  ctx.globalAlpha = 0.48;
+  const hg = ctx.createLinearGradient(-18, -44, 8, 18);
+  hg.addColorStop(0, "rgba(255,255,235,0)");
+  hg.addColorStop(0.46, "rgba(255,255,235,0.42)");
+  hg.addColorStop(1, "rgba(255,255,235,0)");
+  ctx.fillStyle = hg;
   ctx.beginPath();
-  ctx.ellipse(-12, -27, 6, 15, -0.55, 0, TAU);
+  ctx.ellipse(-11, -25, 4.3, 22, -0.42, 0, TAU);
   ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // Short petiole.
+  ctx.strokeStyle = "rgba(72,88,44,0.72)";
+  ctx.lineWidth = 2.1;
+  ctx.beginPath();
+  ctx.moveTo(4, 61);
+  ctx.quadraticCurveTo(5, 69, 9, 76);
+  ctx.stroke();
 
   return c;
 }
@@ -805,7 +905,7 @@ function spawnLeaf(index, edge = false) {
   leaf.vy = (random() - 0.5) * 0.006;
   leaf.angle = random() * TAU;
   leaf.spin = (random() - 0.5) * 0.25;
-  leaf.scale = 0.36 + random() * 0.36;
+  leaf.scale = 0.30 + random() * 0.26;
   leaf.sprite = leafSprites[Math.floor(random() * leafSprites.length)];
   leaf.phase = random() * TAU;
   leaves[index] = leaf;
@@ -856,12 +956,12 @@ function drawLeaves(time, dt) {
     ctx.save();
     ctx.translate(x + g[0] * 130, y + 8 + g[1] * 110);
     ctx.rotate(leaf.angle + 0.08);
-    ctx.scale(leaf.scale * 0.94, leaf.scale * 0.54);
+    ctx.scale(leaf.scale * 0.92, leaf.scale * 0.48);
     ctx.globalAlpha = 0.18;
-    ctx.filter = "blur(3px)";
+    ctx.filter = "blur(4px)";
     ctx.fillStyle = "#001411";
     ctx.beginPath();
-    ctx.ellipse(0, 0, 44, 58, 0, 0, TAU);
+    ctx.ellipse(0, 0, 36, 52, 0, 0, TAU);
     ctx.fill();
     ctx.restore();
 
@@ -870,8 +970,8 @@ function drawLeaves(time, dt) {
     ctx.rotate(leaf.angle + g[0] * 2.8);
     const perspective = 0.92 + Math.cos(time * 0.0012 + leaf.phase) * 0.06;
     ctx.scale(leaf.scale, leaf.scale * perspective);
-    ctx.globalAlpha = 0.96;
-    ctx.drawImage(leaf.sprite, -64, -80);
+    ctx.globalAlpha = 0.93;
+    ctx.drawImage(leaf.sprite, -80, -95);
     ctx.restore();
   }
 }
