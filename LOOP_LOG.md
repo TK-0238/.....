@@ -185,3 +185,30 @@ This file is updated after each improvement loop with:
 - Current progress: the scene now has stronger depth-dependent optical attenuation and more natural bottom-light behavior while retaining the stable interaction model.
 - Remaining: true iPhone Safari hardware visual confirmation remains external.
 - Next: stop further code changes unless a specific visual defect is identified.
+
+## Loop 22
+- Score: **99/100 — PASS**
+- Main gap: the stable double-buffered solver still used a four-neighbour Laplacian, leaving a small theoretical and visual possibility of grid-axis bias in expanding ripples.
+- Changes: replaced the four-neighbour Laplacian with a normalized nine-point isotropic stencil while retaining the existing damping, clamps, and double-buffered update.
+- Verification: GitHub Pages CI succeeded. Idle, immediate-drag, and ~350 ms post-drag renders were visually inspected. Expanding ripples remained round and local; pebble refraction stayed readable; no diagonal/vertical streak regression appeared.
+- Current progress: interaction-wave propagation is more rotationally symmetric without destabilizing the solver.
+- Remaining: environment reflection was still intentionally simple.
+- Next: improve reflected-environment structure without painting screen-space texture bands.
+
+## Loop 23
+- Score: **99/100 — PASS**
+- Main gap: the reflected sky remained slightly too uniform for a natural outdoor shallow-water surface.
+- Changes: replaced the simple periodic sky variation with a restrained multi-direction broad cloud field evaluated in reflection space. The reflected structure follows the surface normal/reflected direction rather than screen UVs.
+- Verification: GitHub Pages CI succeeded. Idle and drag renders were visually inspected. The bottom remained clearly visible and no fixed screen-space banding or cloud-like overlay artifact appeared.
+- Current progress: the reflection reads less like a uniform analytic gradient while preserving subtle shallow-water Fresnel behavior.
+- Remaining: leaves could still behave as visual passengers rather than physically coupled surface objects.
+- Next: add only weak surface-tilt response and micro-wake coupling to fast-moving leaves.
+
+## Loop 24
+- Score: **99/100 — PASS**
+- Main gap: leaves followed flow and inertia correctly but did not feed any physical response back into the surface and had limited local slope response.
+- Changes: added bounded pitch/roll response from the local wave gradient and a throttled tiny wake behind leaves only when their speed exceeds a threshold. The wake amplitude is kept far below pointer-generated ripple energy.
+- Verification: GitHub Pages CI succeeded. Strong multi-direction stirring was visually checked immediately and ~550 ms after release. Leaves rode the surface more naturally, tiny secondary disturbances remained subordinate to the main interaction, pebble refraction stayed local, and no giant lens or global band artifact returned. Final production reload returned `RUNTIME_ERRORS=[]`.
+- Current progress: wave propagation, reflection structure, underwater optics, and floating-object coupling now behave coherently as one scene.
+- Remaining: true iPhone Safari hardware visual confirmation is still external to the connected desktop environment.
+- Next: no further code change is justified without identifying a specific remaining visual defect or validating on true iPhone Safari hardware.
