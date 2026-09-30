@@ -222,3 +222,19 @@ This file is updated after each improvement loop with:
 - Current progress: koi now swim autonomously under the same optical water surface as the rest of the scene.
 - Remaining: true iPhone Safari hardware visual/performance confirmation remains external.
 - Next: only retune koi size, count, color, depth, or behavior if a specific aesthetic defect is identified.
+
+## Loop 26 — Leaf material and silhouette realism
+- Main gap: leaves still shared a near-identical symmetric outline, repeated regular vein structure, and used a generic elliptical contact shadow.
+- Changes: rebuilt the procedural leaf generator around asymmetric sampled silhouettes; added per-variant serration, width/length ratio, lean, age, organic vein branching, chlorophyll mottling, sparse damage, subtle edge thickness, water beads, and petiole variation. Replaced the generic ellipse shadow with a compressed shadow generated from the actual leaf sprite alpha. Added per-leaf curl and tilt individuality.
+- Verification: GitHub Pages CI for `223eda68375db80ee5277fe753c13b2bd536266c` succeeded. Production idle and drag renders were visually inspected.
+- Current progress: leaves no longer look like copies of one clean vector icon.
+- Remaining: fresh-green leaves still appeared a little too bright/uniform at scene scale, and subtle edge wear was difficult to read.
+- Next: widen silhouette variation, mute saturation, and strengthen aged-edge damage only.
+
+## Loop 27 — Leaf population realism
+- Main gap: scene-scale leaf color and silhouette variety still needed more natural distribution.
+- Changes: widened the six leaf silhouettes from broad/round to narrow/lanceolate, increased restrained edge serration, muted the fresh-green palettes, added independent saturation, strengthened older-leaf holes/edge bites, and increased visible aged/brown variety without changing flow physics.
+- Verification: GitHub Pages CI for `fbe7f9fe5bdf4e7396cfd6c9bc3794e701eddf6d` succeeded. Production Chrome was inspected at idle, immediately after stirring, and ~450 ms later. Leaves remained surface-coupled while koi and underwater optics stayed intact. Final reload returned `RUNTIME_ERRORS=[]`.
+- Current progress: floating leaves have visibly different species-like silhouettes, maturity states, wear, and surface contact instead of reading as repeated bright stickers.
+- Remaining: none identified in desktop production validation.
+- Next: only retune if a specific leaf species/style is desired.
