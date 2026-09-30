@@ -175,3 +175,20 @@ The deployed desktop build is visually stable under idle, single-drag, delayed-r
 - Stability / no visual or runtime errors: **5/5**
 
 **Total: 99/100 — PASS**
+
+
+## Koi realism target — Loop 25
+- [x] Koi are rendered as a dynamic underwater layer, not as DOM sprites above the surface.
+- [x] Koi receive the same local water refraction field as submerged scene elements, with reduced displacement appropriate to mid-water depth.
+- [x] Koi receive depth-dependent wavelength attenuation and remain behind Fresnel/environment reflection.
+- [x] Five koi have individual size, speed, depth, pattern, steering phase, and turning behavior.
+- [x] Tail fins oscillate independently from the heavier body.
+- [x] Koi use slow autonomous wandering, edge avoidance, and mild schooling separation.
+- [x] Active stirring startles nearby koi; residual flow only nudges them.
+- [x] Koi remain visually submerged at idle and during interaction.
+- [x] Existing pebble refraction, leaf motion, caustics, and surface reflection remain intact.
+- [x] GitHub Pages CI for `e4895f6ddf30c70227f10ed1a144376b7d8fd4d8` succeeded.
+- [x] Real desktop Chrome render visually inspected at idle, immediately after drag, and after a delayed frame.
+- [x] Live-browser reload returned `RUNTIME_ERRORS=[]`.
+
+**Existing water-realism score remains 99/100 — PASS. Koi supplementary target: PASS.**
