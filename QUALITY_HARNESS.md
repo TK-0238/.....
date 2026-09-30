@@ -149,3 +149,29 @@ The deployed desktop build is visually stable under idle, single-drag, delayed-r
 - Stability / no visual or runtime errors: **5/5**
 
 **Total: 98/100 — PASS**
+
+
+## Loop 22–24 higher realism refinement
+- [x] Wave propagation now uses a rotationally more symmetric 9-point Laplacian.
+- [x] Expanding interaction ripples remain rounder with less grid-axis bias.
+- [x] Environment reflection now includes a restrained broad cloud structure evaluated in reflected-direction space rather than screen UV space.
+- [x] Cloud structure remains subtle enough not to obscure the bottom or create painted bands.
+- [x] Floating leaves respond to local surface tilt through small pitch/roll changes.
+- [x] Faster leaves create only a very weak, throttled trailing surface wake.
+- [x] Leaf wakes remain several orders weaker than pointer interaction and do not become primary ripple emitters.
+- [x] Idle, immediate-drag, delayed-drag, and strong multi-direction drag renders were visually inspected.
+- [x] Pebble refraction remains localized and readable.
+- [x] No giant lens, full-screen band, rectangular plateau, or hard contour artifact reproduced.
+- [x] GitHub Pages CI succeeded for `ada650e9381866b5459177574d38cdb01d83d87e`, `3dfd5d2263651cd9b72de451530caa76555bd0de`, and `2e5242d5bda50b9b28dd9b19927951e7caf7dbd5`.
+- [x] Final live-browser reload returned `RUNTIME_ERRORS=[]`.
+
+### Current evaluated score
+- Water motion / wave propagation: **25/25**
+- Reflection / Fresnel / highlights: **19/20**
+- Pebble refraction / optical distortion: **20/20**
+- Caustics / depth / transparency: **10/10**
+- Leaf advection + material realism: **10/10**
+- Desktop + touch interaction: **10/10**
+- Stability / no visual or runtime errors: **5/5**
+
+**Total: 99/100 — PASS**
