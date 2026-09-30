@@ -216,7 +216,9 @@ void main() {
 
   float bedDepth = 0.50
     + 0.055 * sin(uv.x * 2.8 + 0.6)
-    + 0.045 * sin(uv.y * 3.4 - 0.9);
+    + 0.045 * sin(uv.y * 3.4 - 0.9)
+    + 0.018 * sin((uv.x + uv.y) * 7.2 + 1.4)
+    + 0.010 * sin((uv.x * 1.7 - uv.y * 1.2) * 11.0 - 0.7);
 
   vec2 fineOffset = vec2(-fineSlope.x, fineSlope.y) * 0.067;
   vec2 rippleOffset = vec2(-simSlope.x, simSlope.y) * 0.170;
@@ -232,11 +234,13 @@ void main() {
   bottom.g = texture(uBottom, refractedUv).g;
   bottom.b = texture(uBottom, clamp(refractedUv - normal.xy * 0.00012, 0.002, 0.998)).b;
 
-  vec3 extinction = vec3(0.20, 0.060, 0.030);
+  // Beer-Lambert-style attenuation with slightly stronger warm-channel loss.
+  // The values remain intentionally restrained because this is a shallow pool.
+  vec3 extinction = vec3(0.245, 0.072, 0.036);
   vec3 transmittance = exp(-extinction * bedDepth);
-  vec3 waterScatter = vec3(0.010, 0.048, 0.058);
+  vec3 waterScatter = vec3(0.009, 0.050, 0.060);
   vec3 transmitted = bottom * transmittance
-    + waterScatter * (1.0 - transmittance) * 0.42;
+    + waterScatter * (1.0 - transmittance) * 0.46;
 
   // Add a restrained depth cue: slightly deeper regions lose a little warm light
   // and gain subtle blue-green scatter without obscuring the pebbles.
@@ -245,16 +249,20 @@ void main() {
   transmitted += vec3(0.003, 0.010, 0.012) * depthShade;
 
   float causticSlope = length(fineSlope + simSlope * 0.32);
-  float caustic = smoothstep(0.020, 0.072, causticSlope) * 0.0085;
+  float causticFocus = smoothstep(0.015, 0.060, causticSlope)
+    * (1.0 - smoothstep(0.060, 0.095, causticSlope));
+  float caustic = causticFocus * 0.0105;
   float floorShimmer = causticPattern(
     (refractedUv - 0.5) * vec2(aspect, 1.0),
     uTime
   );
   transmitted += vec3(0.82, 0.88, 0.70) * caustic;
   float causticActivity = smoothstep(0.004, 0.030, length(fineSlope + simSlope * 0.28));
+  float depthCausticFade = mix(1.0, 0.72, smoothstep(0.48, 0.61, bedDepth));
   transmitted += vec3(0.92, 0.86, 0.64)
     * floorShimmer
-    * mix(0.018, 0.032, causticActivity);
+    * mix(0.017, 0.034, causticActivity)
+    * depthCausticFade;
 
   // Interaction highlight is energy-gated, not curvature-colored: a soft
   // transmission shimmer makes taps/flicks readable without drawing contour lines.
@@ -281,6 +289,14 @@ void main() {
     skyZenith,
     smoothstep(0.12, 0.98, skyHeight)
   );
+
+  // Break the perfectly uniform environment gradient with a very low-amplitude
+  // large-scale sky variation. This adds natural reflection structure without
+  // introducing a fake texture or visible painted bands.
+  float skyVariation =
+    sin(reflectedDir.x * 11.0 + uTime * 0.015) *
+    sin(reflectedDir.y * 8.0 - uTime * 0.011);
+  reflection *= 1.0 + skyVariation * 0.012;
 
   float horizonGlow = 1.0 - smoothstep(0.10, 0.38, skyHeight);
   reflection += vec3(0.11, 0.095, 0.070) * horizonGlow * 0.16;
