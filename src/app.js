@@ -248,16 +248,16 @@ void main() {
   transmitted *= mix(vec3(1.0), vec3(0.965, 0.982, 0.988), depthShade);
   transmitted += vec3(0.003, 0.010, 0.012) * depthShade;
 
-  float causticSlope = length(fineSlope + simSlope * 0.32);
-  float causticFocus = smoothstep(0.015, 0.060, causticSlope)
-    * (1.0 - smoothstep(0.060, 0.095, causticSlope));
-  float caustic = causticFocus * 0.0105;
+  float causticSlope = length(fineSlope + simSlope * 0.24);
+  float causticFocus = smoothstep(0.014, 0.052, causticSlope)
+    * (1.0 - smoothstep(0.052, 0.082, causticSlope));
+  float caustic = causticFocus * 0.0088;
   float floorShimmer = causticPattern(
     (refractedUv - 0.5) * vec2(aspect, 1.0),
     uTime
   );
   transmitted += vec3(0.82, 0.88, 0.70) * caustic;
-  float causticActivity = smoothstep(0.004, 0.030, length(fineSlope + simSlope * 0.28));
+  float causticActivity = smoothstep(0.004, 0.028, length(fineSlope + simSlope * 0.20));
   float depthCausticFade = mix(1.0, 0.72, smoothstep(0.48, 0.61, bedDepth));
   transmitted += vec3(0.92, 0.86, 0.64)
     * floorShimmer
