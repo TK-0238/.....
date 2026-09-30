@@ -290,13 +290,22 @@ void main() {
     smoothstep(0.12, 0.98, skyHeight)
   );
 
-  // Break the perfectly uniform environment gradient with a very low-amplitude
-  // large-scale sky variation. This adds natural reflection structure without
-  // introducing a fake texture or visible painted bands.
-  float skyVariation =
-    sin(reflectedDir.x * 11.0 + uTime * 0.015) *
-    sin(reflectedDir.y * 8.0 - uTime * 0.011);
-  reflection *= 1.0 + skyVariation * 0.012;
+  // A faint broad cloud layer is evaluated in reflection space, so it moves
+  // with the reflected direction instead of being painted onto screen UVs.
+  // Incommensurate wave directions avoid an obvious repeating grid while keeping
+  // the mobile shader inexpensive.
+  vec2 skyP = reflectedDir.xy * 3.2;
+  float cloudField = 0.50
+    + sin(dot(skyP, vec2(1.00, 0.37)) + uTime * 0.0060) * 0.20
+    + sin(dot(skyP, vec2(-0.43, 1.23)) - uTime * 0.0047) * 0.14
+    + sin(dot(skyP, vec2(1.77, -0.91)) + uTime * 0.0033) * 0.08;
+  float cloudMask = smoothstep(0.53, 0.72, cloudField);
+  float cloudLift = cloudMask * 0.085;
+  reflection = mix(
+    reflection,
+    reflection * 0.94 + vec3(0.32, 0.34, 0.33),
+    cloudLift
+  );
 
   float horizonGlow = 1.0 - smoothstep(0.10, 0.38, skyHeight);
   reflection += vec3(0.11, 0.095, 0.070) * horizonGlow * 0.16;
