@@ -212,3 +212,13 @@ This file is updated after each improvement loop with:
 - Current progress: wave propagation, reflection structure, underwater optics, and floating-object coupling now behave coherently as one scene.
 - Remaining: true iPhone Safari hardware visual confirmation is still external to the connected desktop environment.
 - Next: no further code change is justified without identifying a specific remaining visual defect or validating on true iPhone Safari hardware.
+
+## Loop 25 — Koi
+- Score: **99/100 water realism retained — KOI TARGET PASSED**
+- Main gap: the pond had realistic water, pebbles, leaves, and reflections but no living underwater subject.
+- Plan: add koi without placing a flat canvas layer above the water. The fish must sit inside the optical pipeline so refraction, attenuation, and surface reflection remain physically coherent.
+- Changes: added a low-resolution dynamic koi texture sampled by the WebGL water shader. Koi are composited at mid-water depth before final surface reflection, use reduced refraction relative to the bed, and receive separate Beer-Lambert attenuation. Added five procedural koi with individual Kohaku/Sanke-like markings, animated tails/fins, autonomous wandering, edge avoidance, mild separation, residual-flow influence, and active-pointer startle response.
+- Verification: GitHub Pages CI for `e4895f6ddf30c70227f10ed1a144376b7d8fd4d8` succeeded. Production Chrome was visually checked at idle, immediately after stirring, and after the fish had moved further. Fish remained submerged rather than appearing pasted above the water, positions changed over time, and the original pebble/reflection/leaf behavior remained intact. Final browser reload returned `RUNTIME_ERRORS=[]`.
+- Current progress: koi now swim autonomously under the same optical water surface as the rest of the scene.
+- Remaining: true iPhone Safari hardware visual/performance confirmation remains external.
+- Next: only retune koi size, count, color, depth, or behavior if a specific aesthetic defect is identified.
