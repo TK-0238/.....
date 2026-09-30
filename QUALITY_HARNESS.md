@@ -124,3 +124,28 @@ The deployed desktop build is visually stable under idle, single-drag, delayed-r
 - Stability / no visual or runtime errors: **5/5**
 
 **Total: 97/100 — PASS**
+
+
+## Loop 20–21 higher-realism refinement
+- [x] Added finer non-periodic depth variation to the shallow bed model.
+- [x] Strengthened wavelength-dependent attenuation using a shallow-water Beer-Lambert approximation.
+- [x] Added depth-dependent caustic fade.
+- [x] Added subtle large-scale reflection variation to reduce perfectly uniform sky reflection.
+- [x] First caustic-focus attempt visually inspected and rejected because interaction rings became too legible as lighting structure.
+- [x] Reduced interaction-wave contribution to bottom caustics and tightened focus band.
+- [x] Idle and drag renders visually inspected after the correction.
+- [x] Pebble refraction remains local and readable.
+- [x] Leaves retain inertia-driven advection.
+- [x] No screen-wide deformation, rectangular plateau, or giant magnifier artifact reproduced.
+- [x] Live-browser reload returned `RUNTIME_ERRORS=[]`.
+
+### Current evaluated score
+- Water motion / wave propagation: **24/25**
+- Reflection / Fresnel / highlights: **19/20**
+- Pebble refraction / optical distortion: **20/20**
+- Caustics / depth / transparency: **10/10**
+- Leaf advection + material realism: **10/10**
+- Desktop + touch interaction: **10/10**
+- Stability / no visual or runtime errors: **5/5**
+
+**Total: 98/100 — PASS**
