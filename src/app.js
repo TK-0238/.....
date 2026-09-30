@@ -974,6 +974,7 @@ function spawnLeaf(index, edge = false) {
   leaf.phase = random() * TAU;
   leaf.tone = 0.90 + random() * 0.15;
   leaf.alpha = 0.88 + random() * 0.08;
+  leaf.nextWake = 0;
   leaves[index] = leaf;
 }
 
@@ -1010,6 +1011,25 @@ function drawLeaves(time, dt) {
       leaf.angle += da * Math.min(1, dt * 0.5);
     }
     leaf.angle += leaf.spin * dt * (0.35 + Math.min(1, speed * 7));
+
+    // A fast floating leaf drags a tiny dimple/wake behind it. Keep this several
+    // orders weaker than pointer interaction so it adds physical coupling without
+    // turning leaves into obvious ripple emitters.
+    if (
+      !prefersReducedMotion &&
+      speed > 0.055 &&
+      time > leaf.nextWake &&
+      leaf.x > 0.02 && leaf.x < 0.98 &&
+      leaf.y > 0.02 && leaf.y < 0.98
+    ) {
+      const invSpeed = 1 / Math.max(speed, 0.0001);
+      const wakeOffset = 0.007 + leaf.scale * 0.006;
+      const wakeX = leaf.x - leaf.vx * invSpeed * wakeOffset;
+      const wakeY = leaf.y - leaf.vy * invSpeed * wakeOffset;
+      const wakeStrength = clamp((speed - 0.05) * 0.009, 0.00025, 0.0012);
+      injectWave(wakeX, wakeY, -wakeStrength, 0.006 + leaf.scale * 0.004);
+      leaf.nextWake = time + 120 + (i % 4) * 25;
+    }
 
     leaf.x += leaf.vx * dt;
     leaf.y += leaf.vy * dt;
@@ -1048,8 +1068,16 @@ function drawLeaves(time, dt) {
     ctx.save();
     ctx.translate(x, y + bob);
     ctx.rotate(leaf.angle + g[0] * 2.8);
-    const perspective = 0.90 + Math.cos(time * 0.0012 + leaf.phase) * 0.055;
-    const lateralRoll = 1.0 + Math.sin(time * 0.0010 + leaf.phase * 1.3) * 0.035;
+    const wavePitch = clamp(g[1] * 4.2, -0.070, 0.070);
+    const waveRoll = clamp(g[0] * 2.8, -0.045, 0.045);
+    const perspective =
+      0.90 +
+      Math.cos(time * 0.0012 + leaf.phase) * 0.055 +
+      wavePitch;
+    const lateralRoll =
+      1.0 +
+      Math.sin(time * 0.0010 + leaf.phase * 1.3) * 0.035 +
+      waveRoll;
     ctx.scale(leaf.scale * lateralRoll, leaf.scale * perspective);
     ctx.globalAlpha = leaf.alpha;
     ctx.filter = "brightness(" + leaf.tone + ") saturate(" + (0.88 + (leaf.tone - 0.90) * 0.9) + ")";
