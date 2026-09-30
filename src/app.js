@@ -1144,158 +1144,279 @@ function uploadSimulation() {
   );
 }
 
-function makeLeafSprite(colors) {
+function makeLeafSprite(config) {
   const c = document.createElement("canvas");
-  c.width = 160;
-  c.height = 190;
+  c.width = 192;
+  c.height = 220;
   const ctx = c.getContext("2d");
 
-  ctx.translate(80, 90);
-  ctx.rotate(-0.07);
+  const colors = config.colors;
+  const halfLength = config.halfLength ?? 78;
+  const maxWidth = config.maxWidth ?? 42;
+  const serration = config.serration ?? 0.035;
+  const asymmetry = config.asymmetry ?? 0.055;
+  const lean = config.lean ?? 0.0;
+  const age = config.age ?? 0.15;
+  const phaseA = random() * TAU;
+  const phaseB = random() * TAU;
 
-  // Contact shadow is intentionally subtle: the leaf is floating on the surface,
-  // not hovering high above it.
-  ctx.shadowColor = "rgba(0, 18, 14, 0.24)";
-  ctx.shadowBlur = 6;
-  ctx.shadowOffsetY = 3;
+  ctx.translate(96, 104);
+  ctx.rotate(config.rotation ?? -0.05);
 
-  const leafPath = () => {
-    ctx.beginPath();
-    ctx.moveTo(0, -70);
-    ctx.bezierCurveTo(22, -61, 40, -38, 42, -10);
-    ctx.bezierCurveTo(44, 18, 28, 47, 4, 66);
-    ctx.bezierCurveTo(-22, 50, -41, 22, -42, -9);
-    ctx.bezierCurveTo(-43, -37, -23, -60, 0, -70);
-    ctx.closePath();
-  };
+  const right = [];
+  const left = [];
+  const steps = 30;
 
-  leafPath();
-  const g = ctx.createLinearGradient(-34, -58, 34, 62);
-  g.addColorStop(0, colors[0]);
-  g.addColorStop(0.47, colors[1]);
-  g.addColorStop(1, colors[2]);
-  ctx.fillStyle = g;
-  ctx.fill();
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const y = -halfLength + t * halfLength * 1.84;
+    const profile = Math.pow(Math.max(0, Math.sin(Math.PI * t)), config.roundness ?? 0.74);
+    const taper = 1.0 - t * (config.baseTaper ?? 0.10);
+    const coreWidth = maxWidth * profile * taper;
 
+    const rightRipple =
+      Math.sin(t * Math.PI * (config.teeth ?? 13) + phaseA) * serration +
+      Math.sin(t * Math.PI * 5.4 + phaseB) * serration * 0.42;
+    const leftRipple =
+      Math.sin(t * Math.PI * (config.teeth ?? 13) + phaseA + 1.55) * serration +
+      Math.sin(t * Math.PI * 4.7 + phaseB + 0.8) * serration * 0.36;
+
+    const centerShift =
+      lean * (t - 0.45) * maxWidth +
+      Math.sin(t * Math.PI * 1.7 + phaseB) * maxWidth * asymmetry * 0.20;
+
+    const rightWidth = coreWidth * (1 + asymmetry * 0.55 + rightRipple);
+    const leftWidth = coreWidth * (1 - asymmetry * 0.42 + leftRipple);
+
+    right.push([centerShift + rightWidth, y]);
+    left.push([centerShift - leftWidth, y]);
+  }
+
+  const leafPath = new Path2D();
+  leafPath.moveTo(lean * -maxWidth * 0.42, -halfLength - 2);
+  for (let i = 1; i < right.length; i++) {
+    leafPath.lineTo(right[i][0], right[i][1]);
+  }
+  for (let i = left.length - 1; i >= 1; i--) {
+    leafPath.lineTo(left[i][0], left[i][1]);
+  }
+  leafPath.closePath();
+
+  // A leaf-sized contact shadow baked into the sprite only gives the edge a tiny
+  // thickness cue. The actual water-contact shadow is rendered dynamically later.
+  ctx.shadowColor = "rgba(2, 18, 12, 0.20)";
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetY = 2;
+
+  const baseGradient = ctx.createLinearGradient(-maxWidth, -halfLength * 0.75, maxWidth, halfLength * 0.72);
+  baseGradient.addColorStop(0.00, colors[0]);
+  baseGradient.addColorStop(0.38, colors[1]);
+  baseGradient.addColorStop(0.72, colors[2]);
+  baseGradient.addColorStop(1.00, colors[3] ?? colors[2]);
+  ctx.fillStyle = baseGradient;
+  ctx.fill(leafPath);
   ctx.shadowColor = "transparent";
 
-  // Translucent rim and slight edge darkening improve thickness perception.
   ctx.save();
-  leafPath();
-  ctx.clip();
-  const edge = ctx.createRadialGradient(-12, -18, 5, 0, 0, 68);
-  edge.addColorStop(0, "rgba(255,255,230,0.05)");
-  edge.addColorStop(0.72, "rgba(255,255,230,0)");
-  edge.addColorStop(1, "rgba(8,24,14,0.18)");
-  ctx.fillStyle = edge;
-  ctx.fillRect(-50, -78, 100, 150);
+  ctx.clip(leafPath);
 
-  // Fine organic mottling.
-  for (let i = 0; i < 90; i++) {
-    const x = (random() - 0.5) * 62;
-    const y = (random() - 0.5) * 104;
-    const widthAtY = 38 * (1 - Math.pow(Math.min(1, Math.abs(y) / 72), 1.65));
-    if (Math.abs(x) > widthAtY) continue;
-    ctx.globalAlpha = 0.025 + random() * 0.045;
-    ctx.fillStyle = random() > 0.55 ? "#f0f2c8" : "#142a1b";
+  // Broad asymmetric curl shading keeps the blade from looking like a flat sticker.
+  const curl = ctx.createLinearGradient(-maxWidth * 0.95, 0, maxWidth * 0.95, 0);
+  curl.addColorStop(0, "rgba(5,23,12," + (0.10 + age * 0.05) + ")");
+  curl.addColorStop(0.34, "rgba(255,255,220,0.025)");
+  curl.addColorStop(0.62, "rgba(255,255,225,0.075)");
+  curl.addColorStop(1, "rgba(3,18,10,0.12)");
+  ctx.fillStyle = curl;
+  ctx.fillRect(-70, -92, 140, 178);
+
+  // Fine chlorophyll / weather mottling.
+  for (let i = 0; i < 150; i++) {
+    const t = random();
+    const yy = -halfLength + t * halfLength * 1.80;
+    const width = maxWidth * Math.pow(Math.max(0, Math.sin(Math.PI * t)), 0.78);
+    const xx = (random() * 2 - 1) * width * 0.82 + lean * (t - 0.5) * maxWidth;
+    const r = 0.28 + random() * 0.95;
+    ctx.globalAlpha = 0.018 + random() * (0.030 + age * 0.035);
+    ctx.fillStyle = random() > 0.57 ? "#f2edb9" : "#18341d";
     ctx.beginPath();
-    ctx.arc(x, y, 0.35 + random() * 0.9, 0, TAU);
+    ctx.arc(xx, yy, r, 0, TAU);
     ctx.fill();
   }
+
+  // Age-related blemishes, intentionally irregular and sparse.
+  const blemishCount = 3 + Math.floor(age * 8);
+  for (let i = 0; i < blemishCount; i++) {
+    const t = 0.18 + random() * 0.68;
+    const yy = -halfLength + t * halfLength * 1.80;
+    const width = maxWidth * Math.pow(Math.sin(Math.PI * t), 0.78);
+    const xx = (random() * 2 - 1) * width * 0.66;
+    ctx.globalAlpha = 0.07 + age * 0.10 + random() * 0.05;
+    ctx.fillStyle = random() > 0.45 ? "#6f6a35" : "#493b27";
+    ctx.beginPath();
+    ctx.ellipse(
+      xx,
+      yy,
+      1.0 + random() * (1.8 + age * 2.8),
+      0.7 + random() * (1.2 + age * 1.7),
+      random() * TAU,
+      0,
+      TAU
+    );
+    ctx.fill();
+  }
+
+  // Tiny insect/weather holes on the older sprites.
+  if (age > 0.42) {
+    ctx.globalCompositeOperation = "destination-out";
+    const holes = 1 + Math.floor(age * 2);
+    for (let i = 0; i < holes; i++) {
+      const t = 0.26 + random() * 0.50;
+      const yy = -halfLength + t * halfLength * 1.78;
+      const width = maxWidth * Math.pow(Math.sin(Math.PI * t), 0.80);
+      const xx = (random() * 2 - 1) * width * 0.58;
+      ctx.globalAlpha = 0.62;
+      ctx.beginPath();
+      ctx.ellipse(xx, yy, 0.9 + random() * 1.5, 0.7 + random() * 1.1, random() * TAU, 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = "source-over";
+  }
+
   ctx.globalAlpha = 1;
   ctx.restore();
 
-  // Main vein is tapered visually by layering strokes.
+  // Slight translucent edge thickness.
+  ctx.strokeStyle = "rgba(220,236,181,0.18)";
+  ctx.lineWidth = 0.85;
+  ctx.stroke(leafPath);
+
+  // Curved main vein with a slightly off-center natural path.
+  const veinLean = lean * maxWidth * 0.55;
   ctx.lineCap = "round";
-  ctx.strokeStyle = "rgba(226,244,191,0.46)";
-  ctx.lineWidth = 2.2;
+  ctx.strokeStyle = "rgba(226,238,178,0.46)";
+  ctx.lineWidth = 2.05;
   ctx.beginPath();
-  ctx.moveTo(0, -58);
-  ctx.quadraticCurveTo(-1, 3, 4, 59);
+  ctx.moveTo(-veinLean * 0.35, -halfLength * 0.80);
+  ctx.bezierCurveTo(
+    veinLean * 0.10,
+    -halfLength * 0.28,
+    veinLean * 0.75,
+    halfLength * 0.20,
+    veinLean + 3,
+    halfLength * 0.72
+  );
   ctx.stroke();
-  ctx.strokeStyle = "rgba(44,78,42,0.34)";
-  ctx.lineWidth = 0.65;
-  ctx.beginPath();
-  ctx.moveTo(1, -57);
-  ctx.quadraticCurveTo(0, 4, 5, 58);
+
+  ctx.strokeStyle = "rgba(38,70,37,0.30)";
+  ctx.lineWidth = 0.60;
   ctx.stroke();
 
-  // Curved alternating side veins.
-  for (let i = -42, n = 0; i <= 40; i += 9, n++) {
-    const yy = i;
-    const t = 1 - Math.abs(yy) / 72;
-    const reach = 29 * Math.max(0.12, t);
-    const lift = 6 + (1 - t) * 3;
-    ctx.strokeStyle = "rgba(219,239,184," + (0.22 + t * 0.16) + ")";
-    ctx.lineWidth = 0.75 + t * 0.35;
+  // Organic alternating secondary veins, with small per-branch angle jitter.
+  const branchCount = config.branches ?? 10;
+  for (let i = 0; i < branchCount; i++) {
+    const t = 0.17 + (i / Math.max(1, branchCount - 1)) * 0.64;
+    const yy = -halfLength + t * halfLength * 1.82;
+    const profile = Math.pow(Math.sin(Math.PI * t), 0.76);
+    const reach = maxWidth * profile * (0.65 + random() * 0.12);
+    const midX = veinLean * (t - 0.35) * 0.72 + 1.5;
 
-    ctx.beginPath();
-    ctx.moveTo(2, yy);
-    ctx.quadraticCurveTo(reach * 0.46, yy + lift * 0.35, reach, yy + lift);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(1, yy + 2);
-    ctx.quadraticCurveTo(-reach * 0.48, yy + lift * 0.40, -reach, yy + lift * 1.05);
-    ctx.stroke();
+    for (const side of [-1, 1]) {
+      const sideScale = side > 0 ? 1.0 : 0.93;
+      const jitter = (random() - 0.5) * 6.5;
+      ctx.strokeStyle = "rgba(218,232,174," + (0.20 + profile * 0.15) + ")";
+      ctx.lineWidth = 0.65 + profile * 0.28;
+      ctx.beginPath();
+      ctx.moveTo(midX, yy);
+      ctx.bezierCurveTo(
+        midX + side * reach * 0.35,
+        yy + 2.5 + jitter * 0.18,
+        midX + side * reach * 0.72,
+        yy + 7.0 + jitter * 0.45,
+        midX + side * reach * sideScale,
+        yy + 11.0 + jitter
+      );
+      ctx.stroke();
+    }
   }
 
-  // Small specular streak following the convex surface.
-  ctx.globalAlpha = 0.48;
-  const hg = ctx.createLinearGradient(-18, -44, 8, 18);
-  hg.addColorStop(0, "rgba(255,255,235,0)");
-  hg.addColorStop(0.46, "rgba(255,255,235,0.42)");
-  hg.addColorStop(1, "rgba(255,255,235,0)");
-  ctx.fillStyle = hg;
-  ctx.beginPath();
-  ctx.ellipse(-11, -25, 4.3, 22, -0.42, 0, TAU);
-  ctx.fill();
-  ctx.globalAlpha = 1;
-
-  // Short petiole.
-  ctx.strokeStyle = "rgba(72,88,44,0.72)";
-  ctx.lineWidth = 2.1;
-  ctx.beginPath();
-  ctx.moveTo(4, 61);
-  ctx.quadraticCurveTo(5, 69, 9, 76);
-  ctx.stroke();
-
-  // Organic wear: tiny translucent blemishes and a few uneven edge marks.
+  // Wet-surface sheen: a broken highlight, not a perfect studio stripe.
   ctx.save();
-  leafPath();
-  ctx.clip();
-  for (let i = 0; i < 7; i++) {
-    const bx = (random() - 0.5) * 44;
-    const by = (random() - 0.5) * 90;
-    ctx.globalAlpha = 0.05 + random() * 0.08;
-    ctx.fillStyle = random() > 0.55 ? "#5c6e35" : "#d6c887";
+  ctx.clip(leafPath);
+  ctx.globalAlpha = 0.34;
+  const sheen = ctx.createLinearGradient(-30, -55, 18, 34);
+  sheen.addColorStop(0.00, "rgba(255,255,232,0)");
+  sheen.addColorStop(0.38, "rgba(255,255,235,0.26)");
+  sheen.addColorStop(0.52, "rgba(255,255,235,0.07)");
+  sheen.addColorStop(1.00, "rgba(255,255,235,0)");
+  ctx.fillStyle = sheen;
+  ctx.beginPath();
+  ctx.ellipse(-13, -22, 4.5, 27, -0.48, 0, TAU);
+  ctx.fill();
+
+  // A few tiny water beads on fresher leaves.
+  const beadCount = age < 0.45 ? 1 + Math.floor(random() * 2) : 0;
+  for (let i = 0; i < beadCount; i++) {
+    const bx = -16 + random() * 28;
+    const by = -36 + random() * 50;
+    const br = 1.1 + random() * 1.4;
+    const bead = ctx.createRadialGradient(bx - br * 0.35, by - br * 0.40, 0.2, bx, by, br);
+    bead.addColorStop(0, "rgba(255,255,255,0.58)");
+    bead.addColorStop(0.35, "rgba(225,245,229,0.20)");
+    bead.addColorStop(1, "rgba(11,40,31,0.12)");
+    ctx.fillStyle = bead;
     ctx.beginPath();
-    ctx.ellipse(bx, by, 1.2 + random() * 2.4, 0.7 + random() * 1.5, random() * TAU, 0, TAU);
+    ctx.arc(bx, by, br, 0, TAU);
     ctx.fill();
   }
-  ctx.globalAlpha = 1;
   ctx.restore();
 
-  ctx.strokeStyle = "rgba(25,48,26,0.26)";
-  ctx.lineWidth = 0.7;
-  for (let i = 0; i < 4; i++) {
-    const sy = -38 + random() * 76;
-    const side = random() > 0.5 ? 1 : -1;
-    const ex = side * (31 + random() * 8);
-    ctx.beginPath();
-    ctx.moveTo(side * 24, sy);
-    ctx.quadraticCurveTo(side * 30, sy + 2, ex, sy + 5 + random() * 4);
-    ctx.stroke();
-  }
+  // Petiole follows the lower asymmetry instead of always being centered.
+  ctx.strokeStyle = "rgba(77,85,43,0.76)";
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(veinLean + 2.5, halfLength * 0.70);
+  ctx.quadraticCurveTo(
+    veinLean + 4.5,
+    halfLength * 0.82,
+    veinLean + 7.5 + lean * 10,
+    halfLength * 0.93
+  );
+  ctx.stroke();
 
   return c;
 }
 
 const leafSprites = [
-  makeLeafSprite(["#c7d86d", "#6e923f", "#315a2f"]),
-  makeLeafSprite(["#b6c95b", "#66853b", "#294a2a"]),
-  makeLeafSprite(["#d5a85c", "#9a6737", "#5c402a"]),
-  makeLeafSprite(["#a4c675", "#587d4e", "#31513d"]),
+  makeLeafSprite({
+    colors: ["#c8d96c", "#7da046", "#476d37", "#315431"],
+    maxWidth: 42, halfLength: 78, teeth: 15, serration: 0.032,
+    asymmetry: 0.070, lean: -0.055, age: 0.10, roundness: 0.72, branches: 10,
+  }),
+  makeLeafSprite({
+    colors: ["#b9cb63", "#6f8e42", "#3b6235", "#2c4d2e"],
+    maxWidth: 38, halfLength: 81, teeth: 17, serration: 0.042,
+    asymmetry: 0.090, lean: 0.065, age: 0.22, roundness: 0.80, branches: 11,
+  }),
+  makeLeafSprite({
+    colors: ["#d6ad67", "#aa713d", "#745036", "#4d392f"],
+    maxWidth: 41, halfLength: 76, teeth: 12, serration: 0.025,
+    asymmetry: 0.080, lean: -0.025, age: 0.62, roundness: 0.70, branches: 9,
+  }),
+  makeLeafSprite({
+    colors: ["#a8c77d", "#668b55", "#42664a", "#31513e"],
+    maxWidth: 45, halfLength: 74, teeth: 14, serration: 0.030,
+    asymmetry: 0.060, lean: 0.035, age: 0.16, roundness: 0.66, branches: 10,
+  }),
+  makeLeafSprite({
+    colors: ["#b7bf61", "#85883d", "#615f31", "#413f2b"],
+    maxWidth: 35, halfLength: 84, teeth: 19, serration: 0.050,
+    asymmetry: 0.105, lean: 0.090, age: 0.48, roundness: 0.86, branches: 12,
+  }),
+  makeLeafSprite({
+    colors: ["#d8c681", "#a58b50", "#76613d", "#56472f"],
+    maxWidth: 40, halfLength: 77, teeth: 13, serration: 0.028,
+    asymmetry: 0.075, lean: -0.075, age: 0.70, roundness: 0.74, branches: 9,
+  }),
 ];
 
 const leaves = [];
@@ -1309,11 +1430,13 @@ function spawnLeaf(index, edge = false) {
   leaf.vy = (random() - 0.5) * 0.006;
   leaf.angle = random() * TAU;
   leaf.spin = (random() - 0.5) * 0.25;
-  leaf.scale = 0.30 + random() * 0.26;
+  leaf.scale = 0.27 + random() * 0.23;
   leaf.sprite = leafSprites[Math.floor(random() * leafSprites.length)];
   leaf.phase = random() * TAU;
   leaf.tone = 0.90 + random() * 0.15;
-  leaf.alpha = 0.88 + random() * 0.08;
+  leaf.alpha = 0.87 + random() * 0.09;
+  leaf.curl = (random() - 0.5) * 0.10;
+  leaf.tiltBias = (random() - 0.5) * 0.05;
   leaf.nextWake = 0;
   leaves[index] = leaf;
 }
@@ -1331,7 +1454,7 @@ function drawLeaves(time, dt) {
     const ambientX = 0.018 + Math.sin(time * 0.00023 + leaf.phase) * 0.008;
     const ambientY = Math.cos(time * 0.00017 + leaf.phase * 1.7) * 0.006;
 
-      const flowSpeed = Math.hypot(flow[0], flow[1]);
+    const flowSpeed = Math.hypot(flow[0], flow[1]);
     const flowCoupling = 0.165 + Math.min(0.035, flowSpeed * 0.018);
     const targetVX = ambientX + flow[0] * flowCoupling;
     const targetVY = ambientY + flow[1] * flowCoupling;
@@ -1385,24 +1508,21 @@ function drawLeaves(time, dt) {
     const bob = Math.sin(time * 0.0018 + leaf.phase) * 1.5;
 
     ctx.save();
-    ctx.translate(x + g[0] * 110, y + 2.5 + g[1] * 95);
-    ctx.rotate(leaf.angle + 0.05);
-    ctx.scale(leaf.scale * 0.88, leaf.scale * 0.32);
-    ctx.globalAlpha = 0.085;
-    ctx.filter = "blur(2px)";
-    ctx.fillStyle = "#071b16";
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 29, 43, 0, 0, TAU);
-    ctx.fill();
+    ctx.translate(x + g[0] * 105, y + 2.2 + g[1] * 90);
+    ctx.rotate(leaf.angle + 0.045);
+    ctx.scale(leaf.scale * 0.91, leaf.scale * (0.27 + Math.abs(leaf.curl) * 0.22));
+    ctx.globalAlpha = 0.070;
+    ctx.filter = "brightness(0) blur(1.8px)";
+    ctx.drawImage(leaf.sprite, -96, -110);
     ctx.restore();
 
     ctx.save();
-    ctx.translate(x - g[0] * 45, y + 3 - g[1] * 40);
-    ctx.rotate(leaf.angle + 0.04);
-    ctx.scale(leaf.scale * 0.78, leaf.scale * 0.20);
-    ctx.globalAlpha = 0.045;
-    ctx.filter = "blur(1.8px)";
-    ctx.drawImage(leaf.sprite, -80, -95);
+    ctx.translate(x - g[0] * 42, y + 2.6 - g[1] * 38);
+    ctx.rotate(leaf.angle + 0.035);
+    ctx.scale(leaf.scale * 0.76, leaf.scale * (0.16 + Math.abs(leaf.curl) * 0.16));
+    ctx.globalAlpha = 0.035;
+    ctx.filter = "brightness(0.82) saturate(0.72) blur(1.6px)";
+    ctx.drawImage(leaf.sprite, -96, -110);
     ctx.restore();
 
     ctx.save();
@@ -1412,16 +1532,18 @@ function drawLeaves(time, dt) {
     const waveRoll = clamp(g[0] * 2.8, -0.045, 0.045);
     const perspective =
       0.90 +
-      Math.cos(time * 0.0012 + leaf.phase) * 0.055 +
+      leaf.tiltBias +
+      Math.cos(time * 0.0012 + leaf.phase) * 0.050 +
       wavePitch;
     const lateralRoll =
       1.0 +
-      Math.sin(time * 0.0010 + leaf.phase * 1.3) * 0.035 +
+      leaf.curl +
+      Math.sin(time * 0.0010 + leaf.phase * 1.3) * 0.030 +
       waveRoll;
     ctx.scale(leaf.scale * lateralRoll, leaf.scale * perspective);
     ctx.globalAlpha = leaf.alpha;
     ctx.filter = "brightness(" + leaf.tone + ") saturate(" + (0.88 + (leaf.tone - 0.90) * 0.9) + ")";
-    ctx.drawImage(leaf.sprite, -80, -95);
+    ctx.drawImage(leaf.sprite, -96, -110);
     ctx.filter = "none";
     ctx.restore();
   }
