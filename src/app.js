@@ -654,12 +654,21 @@ function stepWave() {
       const row = y * waveW;
       for (let x = 1; x < waveW - 1; x++) {
         const i = row + x;
-        const lap =
+        // 9-point isotropic Laplacian. Compared with the 4-neighbour stencil,
+        // this reduces subtle grid-axis bias so circular ripples remain round as
+        // they expand across the surface.
+        const axial =
           waveHeight[i - 1] +
           waveHeight[i + 1] +
           waveHeight[i - waveW] +
-          waveHeight[i + waveW] -
-          waveHeight[i] * 4;
+          waveHeight[i + waveW];
+        const diagonal =
+          waveHeight[i - waveW - 1] +
+          waveHeight[i - waveW + 1] +
+          waveHeight[i + waveW - 1] +
+          waveHeight[i + waveW + 1];
+        const lap =
+          (4 * axial + diagonal - waveHeight[i] * 20) / 6;
 
         const velocity = clamp(
           (waveVelocity[i] + lap * 0.108) * 0.9865,
