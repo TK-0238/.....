@@ -192,3 +192,21 @@ The deployed desktop build is visually stable under idle, single-drag, delayed-r
 - [x] Live-browser reload returned `RUNTIME_ERRORS=[]`.
 
 **Existing water-realism score remains 99/100 — PASS. Koi supplementary target: PASS.**
+
+
+## Leaf realism target — Loops 26–27
+- [x] Leaf silhouettes are no longer one shared symmetric Bézier shape.
+- [x] Six procedural leaf variants differ in width/length ratio, asymmetry, lean, edge serration, age, and coloration.
+- [x] Main veins are curved/off-center and secondary veins include branch-angle jitter.
+- [x] Fine chlorophyll mottling, sparse blemishes, older-leaf holes, and edge bites are present.
+- [x] Fresher leaves can carry tiny wet-surface bead highlights.
+- [x] Runtime contact shadow now follows each leaf silhouette instead of using a generic ellipse.
+- [x] Each leaf has independent brightness, saturation, curl, and tilt bias.
+- [x] Fresh greens were muted and aged/brown variants made more visible in the overall population.
+- [x] Leaves still respond to flow, surface slope, inertia, and micro-wake behavior.
+- [x] Koi, pebble refraction, caustics, and water reflection remain unaffected.
+- [x] GitHub Pages CI for `223eda68375db80ee5277fe753c13b2bd536266c` and `fbe7f9fe5bdf4e7396cfd6c9bc3794e701eddf6d` succeeded.
+- [x] Production Chrome visually inspected at idle and during/after stirring.
+- [x] Final production reload returned `RUNTIME_ERRORS=[]`.
+
+**Leaf realism target: PASS. Existing water realism remains 99/100.**
