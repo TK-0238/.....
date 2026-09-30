@@ -166,3 +166,22 @@ This file is updated after each improvement loop with:
 - Current progress: visual realism improved without changing the stable wave/refraction solver. Current evaluated score is 97/100, above the requested >=95 threshold.
 - Remaining: true iPhone Safari hardware visual confirmation remains the only external verification item.
 - Next: stop code changes unless hardware validation exposes a concrete defect.
+
+## Loop 20
+- Score: **97/100 — exploratory improvement**
+- Main gap: the water still had a slightly uniform, synthetic shallow-depth response.
+- Changes: added finer low-amplitude depth variation, stronger wavelength-dependent attenuation, depth-dependent caustic fading, and subtle non-uniform sky reflection.
+- Verification: Pages deployment succeeded and idle/drag renders were visually inspected.
+- Result: idle depth and underwater color improved, but interaction-driven caustics became too readable as a ring during stirring.
+- Current progress: depth realism improved, but the new caustic focus was too tightly coupled to user-generated waves.
+- Remaining: decouple bottom-lighting response from the interaction ring without weakening pebble refraction.
+- Next: reduce interaction-wave contribution to the caustic term only.
+
+## Loop 21
+- Score: **98/100 — PASS**
+- Main gap: remove the Loop 20 ring-like lighting artifact while keeping the improved depth response.
+- Changes: reduced `simSlope` weighting in the caustic slope/activity terms and tightened/lowered caustic focus intensity. The refraction path, wave solver, and leaf advection were left unchanged.
+- Verification: idle, immediate-drag, and ~300 ms post-drag renders were visually inspected. The ring-like caustic emphasis was reduced while local pebble distortion remained visible. No giant lens, full-screen band, or hard rectangular artifact reproduced. Live-browser reload returned `RUNTIME_ERRORS=[]`.
+- Current progress: the scene now has stronger depth-dependent optical attenuation and more natural bottom-light behavior while retaining the stable interaction model.
+- Remaining: true iPhone Safari hardware visual confirmation remains external.
+- Next: stop further code changes unless a specific visual defect is identified.
