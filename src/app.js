@@ -79,6 +79,7 @@ out vec4 outColor;
 uniform sampler2D uBottom;
 uniform sampler2D uWave;
 uniform sampler2D uFlow;
+uniform sampler2D uKoi;
 uniform vec2 uWaveTexel;
 uniform vec2 uFlowTexel;
 uniform float uTime;
@@ -234,13 +235,27 @@ void main() {
   bottom.g = texture(uBottom, refractedUv).g;
   bottom.b = texture(uBottom, clamp(refractedUv - normal.xy * 0.00012, 0.002, 0.998)).b;
 
+  // Koi live above the bed, so they receive less refraction and attenuation than
+  // the pebbles while still remaining behind the surface reflection.
+  vec2 koiUv = clamp(uv + refractOffset * 0.62, 0.002, 0.998);
+  vec4 koiSample =
+      texture(uKoi, koiUv) * 0.72
+    + texture(uKoi, clamp(koiUv + normal.xy * 0.00070, 0.002, 0.998)) * 0.14
+    + texture(uKoi, clamp(koiUv - normal.xy * 0.00052, 0.002, 0.998)) * 0.14;
+
   // Beer-Lambert-style attenuation with slightly stronger warm-channel loss.
   // The values remain intentionally restrained because this is a shallow pool.
   vec3 extinction = vec3(0.245, 0.072, 0.036);
   vec3 transmittance = exp(-extinction * bedDepth);
   vec3 waterScatter = vec3(0.009, 0.050, 0.060);
-  vec3 transmitted = bottom * transmittance
+  vec3 bottomTransmitted = bottom * transmittance
     + waterScatter * (1.0 - transmittance) * 0.46;
+
+  vec3 koiTransmittance = exp(-extinction * bedDepth * 0.53);
+  vec3 koiTransmitted = koiSample.rgb * koiTransmittance
+    + waterScatter * (1.0 - koiTransmittance) * 0.30;
+  float koiCoverage = smoothstep(0.018, 0.86, koiSample.a);
+  vec3 transmitted = mix(bottomTransmitted, koiTransmitted, koiCoverage);
 
   // Add a restrained depth cue: slightly deeper regions lose a little warm light
   // and gain subtle blue-green scatter without obscuring the pebbles.
@@ -347,6 +362,7 @@ const uniforms = {
   bottom: gl.getUniformLocation(program, "uBottom"),
   wave: gl.getUniformLocation(program, "uWave"),
   flow: gl.getUniformLocation(program, "uFlow"),
+  koi: gl.getUniformLocation(program, "uKoi"),
   waveTexel: gl.getUniformLocation(program, "uWaveTexel"),
   flowTexel: gl.getUniformLocation(program, "uFlowTexel"),
   time: gl.getUniformLocation(program, "uTime"),
@@ -537,6 +553,35 @@ function makePebbleTexture() {
 
 const bottomTexture = makePebbleTexture();
 
+const koiCanvas = document.createElement("canvas");
+const koiCtx = koiCanvas.getContext("2d", { alpha: true });
+koiCanvas.width = 480;
+koiCanvas.height = 320;
+
+const koiTexture = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D, koiTexture);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, koiCanvas);
+gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+
+function resizeKoiTexture(aspect) {
+  const targetW = 480;
+  const targetH = clamp(Math.round(targetW / Math.max(0.72, aspect)), 240, 480);
+  if (koiCanvas.width === targetW && koiCanvas.height === targetH) return;
+
+  koiCanvas.width = targetW;
+  koiCanvas.height = targetH;
+  gl.activeTexture(gl.TEXTURE3);
+  gl.bindTexture(gl.TEXTURE_2D, koiTexture);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, koiCanvas);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+}
+
 let dpr = 1;
 let width = 1;
 let height = 1;
@@ -600,6 +645,7 @@ function resize() {
     leavesCanvas.style.width = width + "px";
     leavesCanvas.style.height = height + "px";
     gl.viewport(0, 0, rw, rh);
+    resizeKoiTexture(width / Math.max(1, height));
     rebuildSimulation();
   }
 }
@@ -767,6 +813,300 @@ function sampleWaveGradient(nx, ny) {
     bilinear(waveHeight, x, y + 1, waveW, waveH)
   ) * 0.5;
   return [gx, gy];
+}
+
+const koiPalettes = [
+  { base: "#eee8d7", patches: ["#d75d32", "#292c29"] },
+  { base: "#f1ead8", patches: ["#c74228", "#cb7a2c"] },
+  { base: "#d8d7cf", patches: ["#262b2c", "#c35a31"] },
+  { base: "#e8cf8f", patches: ["#b95c29", "#5c4631"] },
+  { base: "#f4eee1", patches: ["#b53025", "#31302c"] },
+];
+
+const koi = [];
+const koiCount = prefersReducedMotion ? 3 : 5;
+
+function spawnKoi(index) {
+  const fish = {
+    x: 0.14 + random() * 0.72,
+    y: 0.13 + random() * 0.74,
+    angle: random() * TAU,
+    speed: 0.025 + random() * 0.012,
+    cruise: 0.024 + random() * 0.014,
+    size: 0.070 + random() * 0.030,
+    depth: 0.28 + random() * 0.38,
+    phase: random() * TAU,
+    tailPhase: random() * TAU,
+    turnRate: 0.72 + random() * 0.52,
+    palette: koiPalettes[index % koiPalettes.length],
+    spots: [],
+  };
+
+  const spotCount = 3 + Math.floor(random() * 4);
+  for (let i = 0; i < spotCount; i++) {
+    fish.spots.push({
+      x: -0.18 + random() * 0.48,
+      y: (random() - 0.5) * 0.16,
+      rx: 0.055 + random() * 0.085,
+      ry: 0.035 + random() * 0.060,
+      rot: (random() - 0.5) * 1.2,
+      color: fish.palette.patches[Math.floor(random() * fish.palette.patches.length)],
+      alpha: 0.66 + random() * 0.25,
+    });
+  }
+
+  koi[index] = fish;
+}
+
+for (let i = 0; i < koiCount; i++) spawnKoi(i);
+
+function wrapAngle(a) {
+  return ((a + Math.PI) % TAU + TAU) % TAU - Math.PI;
+}
+
+function koiBodyPath(ctx, length, bend) {
+  const w = length * 0.155;
+  ctx.beginPath();
+  ctx.moveTo(-length * 0.37, bend);
+  ctx.bezierCurveTo(
+    -length * 0.22, -w * 0.98 + bend * 0.35,
+     length * 0.18, -w,
+     length * 0.40, -w * 0.48
+  );
+  ctx.quadraticCurveTo(length * 0.51, 0, length * 0.40, w * 0.48);
+  ctx.bezierCurveTo(
+     length * 0.18, w,
+    -length * 0.22, w * 0.98 + bend * 0.35,
+    -length * 0.37, bend
+  );
+  ctx.closePath();
+}
+
+function drawSingleKoi(ctx, fish, time) {
+  const W = koiCanvas.width;
+  const H = koiCanvas.height;
+  const length = fish.size * W;
+  const swimRate = 4.5 + fish.speed * 58;
+  const tailSwing = Math.sin(fish.tailPhase) * length * (0.045 + fish.speed * 0.70);
+  const bodyBend = Math.sin(fish.tailPhase * 0.52 + fish.phase) * length * 0.012;
+  const opacity = 0.72 - fish.depth * 0.18;
+
+  ctx.save();
+  ctx.translate(fish.x * W, fish.y * H);
+  ctx.rotate(fish.angle);
+  ctx.globalAlpha = opacity;
+  ctx.filter = "blur(" + (0.15 + fish.depth * 0.55) + "px)";
+
+  // Soft underwater body shadow / volume halo.
+  ctx.save();
+  ctx.globalAlpha *= 0.11;
+  ctx.filter = "blur(" + (2.0 + fish.depth * 2.2) + "px)";
+  ctx.fillStyle = "#0b2929";
+  ctx.beginPath();
+  ctx.ellipse(-length * 0.01, length * 0.025, length * 0.38, length * 0.115, 0, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+
+  // Tail fin, animated independently from the heavier body.
+  const tailGrad = ctx.createLinearGradient(-length * 0.58, 0, -length * 0.32, 0);
+  tailGrad.addColorStop(0, "rgba(233,222,194,0.22)");
+  tailGrad.addColorStop(1, "rgba(238,230,207,0.72)");
+  ctx.fillStyle = tailGrad;
+  ctx.beginPath();
+  ctx.moveTo(-length * 0.34, -length * 0.050 + bodyBend);
+  ctx.quadraticCurveTo(
+    -length * 0.49,
+    -length * 0.145 + tailSwing,
+    -length * 0.58,
+    -length * 0.105 + tailSwing
+  );
+  ctx.quadraticCurveTo(
+    -length * 0.535,
+    tailSwing,
+    -length * 0.58,
+    length * 0.105 + tailSwing
+  );
+  ctx.quadraticCurveTo(
+    -length * 0.49,
+    length * 0.145 + tailSwing,
+    -length * 0.34,
+    length * 0.050 + bodyBend
+  );
+  ctx.closePath();
+  ctx.fill();
+
+  // Pectoral fins.
+  ctx.fillStyle = "rgba(228,220,198,0.38)";
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(length * 0.08, side * length * 0.095);
+    ctx.quadraticCurveTo(
+      length * 0.00,
+      side * length * 0.205,
+      -length * 0.10,
+      side * length * 0.145
+    );
+    ctx.quadraticCurveTo(
+      -length * 0.015,
+      side * length * 0.090,
+      length * 0.08,
+      side * length * 0.095
+    );
+    ctx.fill();
+  }
+
+  koiBodyPath(ctx, length, bodyBend);
+  const bodyGrad = ctx.createLinearGradient(-length * 0.36, -length * 0.10, length * 0.44, length * 0.07);
+  bodyGrad.addColorStop(0, "#c7c4b8");
+  bodyGrad.addColorStop(0.34, fish.palette.base);
+  bodyGrad.addColorStop(0.76, fish.palette.base);
+  bodyGrad.addColorStop(1, "#c9c8bc");
+  ctx.fillStyle = bodyGrad;
+  ctx.fill();
+
+  // Stable Kohaku/Sanke-like markings clipped to the body.
+  ctx.save();
+  koiBodyPath(ctx, length, bodyBend);
+  ctx.clip();
+  for (const spot of fish.spots) {
+    ctx.globalAlpha = opacity * spot.alpha;
+    ctx.fillStyle = spot.color;
+    ctx.beginPath();
+    ctx.ellipse(
+      spot.x * length,
+      spot.y * length + bodyBend * (0.35 - spot.x),
+      spot.rx * length,
+      spot.ry * length,
+      spot.rot,
+      0,
+      TAU
+    );
+    ctx.fill();
+  }
+
+  // Fine dorsal luminance makes the back feel rounded under shallow water.
+  ctx.globalAlpha = opacity * 0.24;
+  const sheen = ctx.createLinearGradient(0, -length * 0.10, 0, length * 0.10);
+  sheen.addColorStop(0, "rgba(255,255,243,0)");
+  sheen.addColorStop(0.46, "rgba(255,255,243,0.55)");
+  sheen.addColorStop(0.56, "rgba(255,255,243,0.22)");
+  sheen.addColorStop(1, "rgba(255,255,243,0)");
+  ctx.fillStyle = sheen;
+  ctx.fillRect(-length * 0.30, -length * 0.11, length * 0.72, length * 0.22);
+  ctx.restore();
+
+  // Head, eyes, and very subtle mouth cue.
+  ctx.globalAlpha = opacity * 0.70;
+  ctx.fillStyle = "#202826";
+  const eyeX = length * 0.335;
+  const eyeY = length * 0.047;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(eyeX, side * eyeY, Math.max(0.8, length * 0.010), 0, TAU);
+    ctx.fill();
+  }
+  ctx.strokeStyle = "rgba(91,77,62,0.38)";
+  ctx.lineWidth = Math.max(0.55, length * 0.006);
+  ctx.beginPath();
+  ctx.arc(length * 0.432, 0, length * 0.026, -0.62, 0.62);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function updateAndDrawKoi(time, dt) {
+  const ctx = koiCtx;
+  const aspect = width / Math.max(1, height);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, koiCanvas.width, koiCanvas.height);
+
+  for (let i = 0; i < koi.length; i++) {
+    const fish = koi[i];
+
+    let steerX = Math.cos(fish.angle);
+    let steerY = Math.sin(fish.angle);
+
+    // Two slow wander frequencies avoid visibly periodic circles.
+    const wander =
+      Math.sin(time * 0.00021 + fish.phase) * 0.34 +
+      Math.sin(time * 0.000083 + fish.phase * 2.7) * 0.21;
+    steerX += Math.cos(fish.angle + wander) * 0.28;
+    steerY += Math.sin(fish.angle + wander) * 0.28;
+
+    // Soft edge avoidance in screen-space coordinates.
+    const margin = 0.12;
+    if (fish.x < margin) steerX += (margin - fish.x) * 12 * aspect;
+    if (fish.x > 1 - margin) steerX -= (fish.x - (1 - margin)) * 12 * aspect;
+    if (fish.y < margin) steerY += (margin - fish.y) * 12;
+    if (fish.y > 1 - margin) steerY -= (fish.y - (1 - margin)) * 12;
+
+    // Mild schooling separation; koi remain independent rather than moving as one flock.
+    for (let j = 0; j < koi.length; j++) {
+      if (j === i) continue;
+      const other = koi[j];
+      const dx = (fish.x - other.x) * aspect;
+      const dy = fish.y - other.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 0.0001 && d < 0.12) {
+        const push = (0.12 - d) / 0.12;
+        steerX += (dx / d) * push * 0.72;
+        steerY += (dy / d) * push * 0.72;
+      }
+    }
+
+    // Stirring startles nearby fish, while residual current only nudges them.
+    let fear = 0;
+    for (const p of pointers.values()) {
+      const dx = (fish.x - p.x) * aspect;
+      const dy = fish.y - p.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 0.0001 && d < 0.26) {
+        const f = (0.26 - d) / 0.26;
+        steerX += (dx / d) * f * 2.7;
+        steerY += (dy / d) * f * 2.7;
+        fear = Math.max(fear, f);
+      }
+    }
+
+    const flow = sampleFlow(clamp(fish.x, 0, 1), clamp(fish.y, 0, 1));
+    const flowSpeed = Math.hypot(flow[0], flow[1]);
+    steerX += flow[0] * aspect * 0.055;
+    steerY += flow[1] * 0.055;
+
+    const desiredAngle = Math.atan2(steerY, steerX);
+    const da = wrapAngle(desiredAngle - fish.angle);
+    fish.angle += da * Math.min(1, dt * fish.turnRate * (1.0 + fear * 1.4));
+
+    const targetSpeed =
+      fish.cruise +
+      Math.min(0.020, flowSpeed * 0.004) +
+      fear * 0.030;
+    fish.speed += (targetSpeed - fish.speed) * Math.min(1, dt * 1.4);
+
+    fish.x += Math.cos(fish.angle) * fish.speed * dt / Math.max(0.75, aspect);
+    fish.y += Math.sin(fish.angle) * fish.speed * dt;
+    fish.x = clamp(fish.x, 0.035, 0.965);
+    fish.y = clamp(fish.y, 0.045, 0.955);
+
+    fish.tailPhase += dt * (4.0 + fish.speed * 95);
+    drawSingleKoi(ctx, fish, time);
+  }
+}
+
+function uploadKoiTexture() {
+  gl.activeTexture(gl.TEXTURE3);
+  gl.bindTexture(gl.TEXTURE_2D, koiTexture);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.texSubImage2D(
+    gl.TEXTURE_2D,
+    0,
+    0,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    koiCanvas
+  );
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
 }
 
 function uploadSimulation() {
@@ -1297,6 +1637,8 @@ function render(now) {
     nextAmbientRipple = now + 800 + random() * 1700;
   }
 
+  updateAndDrawKoi(now, dt);
+  uploadKoiTexture();
   uploadSimulation();
 
   gl.useProgram(program);
@@ -1313,6 +1655,10 @@ function render(now) {
   gl.activeTexture(gl.TEXTURE2);
   gl.bindTexture(gl.TEXTURE_2D, flowTexture);
   gl.uniform1i(uniforms.flow, 2);
+
+  gl.activeTexture(gl.TEXTURE3);
+  gl.bindTexture(gl.TEXTURE_2D, koiTexture);
+  gl.uniform1i(uniforms.koi, 3);
 
   gl.uniform2f(uniforms.waveTexel, 1 / waveW, 1 / waveH);
   gl.uniform2f(uniforms.flowTexel, 1 / flowW, 1 / flowH);
