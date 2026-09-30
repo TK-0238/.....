@@ -1265,7 +1265,7 @@ function makeLeafSprite(config) {
     ctx.fill();
   }
 
-  // Tiny insect/weather holes on the older sprites.
+  // Tiny insect/weather holes and edge bites on the older sprites.
   if (age > 0.42) {
     ctx.globalCompositeOperation = "destination-out";
     const holes = 1 + Math.floor(age * 2);
@@ -1279,6 +1279,28 @@ function makeLeafSprite(config) {
       ctx.ellipse(xx, yy, 0.9 + random() * 1.5, 0.7 + random() * 1.1, random() * TAU, 0, TAU);
       ctx.fill();
     }
+
+    const bites = 1 + Math.floor(age * 3);
+    for (let i = 0; i < bites; i++) {
+      const t = 0.22 + random() * 0.58;
+      const yy = -halfLength + t * halfLength * 1.80;
+      const width = maxWidth * Math.pow(Math.sin(Math.PI * t), 0.76);
+      const side = random() > 0.5 ? 1 : -1;
+      const xx = side * width * (0.90 + random() * 0.06);
+      ctx.globalAlpha = 0.76;
+      ctx.beginPath();
+      ctx.ellipse(
+        xx,
+        yy,
+        2.1 + random() * 2.4,
+        1.5 + random() * 2.0,
+        random() * TAU,
+        0,
+        TAU
+      );
+      ctx.fill();
+    }
+
     ctx.globalCompositeOperation = "source-over";
   }
 
@@ -1388,34 +1410,34 @@ function makeLeafSprite(config) {
 
 const leafSprites = [
   makeLeafSprite({
-    colors: ["#c8d96c", "#7da046", "#476d37", "#315431"],
-    maxWidth: 42, halfLength: 78, teeth: 15, serration: 0.032,
-    asymmetry: 0.070, lean: -0.055, age: 0.10, roundness: 0.72, branches: 10,
+    colors: ["#b6c66d", "#78904c", "#48633d", "#334d37"],
+    maxWidth: 44, halfLength: 73, teeth: 15, serration: 0.055,
+    asymmetry: 0.085, lean: -0.070, age: 0.12, roundness: 0.62, branches: 10,
   }),
   makeLeafSprite({
-    colors: ["#b9cb63", "#6f8e42", "#3b6235", "#2c4d2e"],
-    maxWidth: 38, halfLength: 81, teeth: 17, serration: 0.042,
-    asymmetry: 0.090, lean: 0.065, age: 0.22, roundness: 0.80, branches: 11,
+    colors: ["#a9b85f", "#697f43", "#3d5935", "#2e4730"],
+    maxWidth: 32, halfLength: 88, teeth: 19, serration: 0.080,
+    asymmetry: 0.110, lean: 0.080, age: 0.24, roundness: 0.92, branches: 12,
   }),
   makeLeafSprite({
-    colors: ["#d6ad67", "#aa713d", "#745036", "#4d392f"],
-    maxWidth: 41, halfLength: 76, teeth: 12, serration: 0.025,
-    asymmetry: 0.080, lean: -0.025, age: 0.62, roundness: 0.70, branches: 9,
+    colors: ["#c79a5e", "#97653d", "#6b4d36", "#47372e"],
+    maxWidth: 43, halfLength: 74, teeth: 12, serration: 0.050,
+    asymmetry: 0.095, lean: -0.035, age: 0.68, roundness: 0.68, branches: 9,
   }),
   makeLeafSprite({
-    colors: ["#a8c77d", "#668b55", "#42664a", "#31513e"],
-    maxWidth: 45, halfLength: 74, teeth: 14, serration: 0.030,
-    asymmetry: 0.060, lean: 0.035, age: 0.16, roundness: 0.66, branches: 10,
+    colors: ["#91ad72", "#5b7a55", "#3f5e49", "#314b3e"],
+    maxWidth: 49, halfLength: 69, teeth: 14, serration: 0.048,
+    asymmetry: 0.075, lean: 0.045, age: 0.18, roundness: 0.56, branches: 10,
   }),
   makeLeafSprite({
-    colors: ["#b7bf61", "#85883d", "#615f31", "#413f2b"],
-    maxWidth: 35, halfLength: 84, teeth: 19, serration: 0.050,
-    asymmetry: 0.105, lean: 0.090, age: 0.48, roundness: 0.86, branches: 12,
+    colors: ["#9fa45b", "#72753d", "#565435", "#3d3c2d"],
+    maxWidth: 30, halfLength: 90, teeth: 21, serration: 0.090,
+    asymmetry: 0.125, lean: 0.105, age: 0.52, roundness: 0.96, branches: 12,
   }),
   makeLeafSprite({
-    colors: ["#d8c681", "#a58b50", "#76613d", "#56472f"],
-    maxWidth: 40, halfLength: 77, teeth: 13, serration: 0.028,
-    asymmetry: 0.075, lean: -0.075, age: 0.70, roundness: 0.74, branches: 9,
+    colors: ["#c3ae73", "#92794d", "#69573b", "#4c4030"],
+    maxWidth: 41, halfLength: 76, teeth: 13, serration: 0.060,
+    asymmetry: 0.095, lean: -0.090, age: 0.78, roundness: 0.72, branches: 9,
   }),
 ];
 
@@ -1433,8 +1455,9 @@ function spawnLeaf(index, edge = false) {
   leaf.scale = 0.27 + random() * 0.23;
   leaf.sprite = leafSprites[Math.floor(random() * leafSprites.length)];
   leaf.phase = random() * TAU;
-  leaf.tone = 0.90 + random() * 0.15;
-  leaf.alpha = 0.87 + random() * 0.09;
+  leaf.tone = 0.86 + random() * 0.12;
+  leaf.saturation = 0.78 + random() * 0.16;
+  leaf.alpha = 0.86 + random() * 0.09;
   leaf.curl = (random() - 0.5) * 0.10;
   leaf.tiltBias = (random() - 0.5) * 0.05;
   leaf.nextWake = 0;
@@ -1542,7 +1565,7 @@ function drawLeaves(time, dt) {
       waveRoll;
     ctx.scale(leaf.scale * lateralRoll, leaf.scale * perspective);
     ctx.globalAlpha = leaf.alpha;
-    ctx.filter = "brightness(" + leaf.tone + ") saturate(" + (0.88 + (leaf.tone - 0.90) * 0.9) + ")";
+    ctx.filter = "brightness(" + leaf.tone + ") saturate(" + leaf.saturation + ")";
     ctx.drawImage(leaf.sprite, -96, -110);
     ctx.filter = "none";
     ctx.restore();
