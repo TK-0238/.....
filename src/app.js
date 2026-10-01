@@ -1969,10 +1969,7 @@ function endInteraction(id) {
 }
 
 stage.addEventListener("pointerdown", (e) => {
-  if (isIOS && e.pointerType !== "mouse") {
-    if (motionState.permission === "idle") void ensureMotionPermission();
-    return;
-  }
+  if (isIOS && e.pointerType !== "mouse") return;
 
   const p = pointerPosition(e);
   try {
