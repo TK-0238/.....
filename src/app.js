@@ -2,6 +2,7 @@ const stage = document.getElementById("stage");
 const water = document.getElementById("water");
 const leavesCanvas = document.getElementById("leaves");
 const hint = document.getElementById("hint");
+const motionEnable = document.getElementById("motionEnable");
 const unsupported = document.getElementById("unsupported");
 
 const gl = water.getContext("webgl2", {
@@ -1578,7 +1579,7 @@ const isIOS =
 
 const hintText = hint?.querySelector("span");
 if (isIOS && hintText) {
-  hintText.textContent = "水面をタップしてモーション許可 → iPhoneを揺らす";
+  hintText.textContent = "「モーションを有効にする」をタップ";
 }
 if (isIOS) {
   stage.setAttribute(
@@ -1590,6 +1591,7 @@ if (isIOS) {
 const motionState = {
   permission: typeof DeviceMotionEvent === "undefined" ? "unsupported" : "idle",
   attached: false,
+  eventSeen: false,
   gravityReady: false,
   gravityX: 0,
   gravityY: 0,
@@ -1686,6 +1688,23 @@ function linearAccelerationFromMotion(e) {
 
 function handleDeviceMotion(e) {
   if (document.hidden) return;
+
+  if (!motionState.eventSeen) {
+    motionState.eventSeen = true;
+    if (motionEnable) {
+      motionEnable.disabled = true;
+      motionEnable.dataset.state = "ok";
+      motionEnable.textContent = "モーション有効 ✓";
+      setTimeout(() => {
+        motionEnable.hidden = true;
+      }, 900);
+    }
+    if (hintText) {
+      hintText.textContent = "iPhoneを揺らす / 指で水面をなぞる";
+      hint.classList.remove("is-hidden");
+      setTimeout(() => hint.classList.add("is-hidden"), 1900);
+    }
+  }
 
   const acceleration = linearAccelerationFromMotion(e);
   if (!acceleration) return;
@@ -1818,10 +1837,30 @@ function handleDeviceMotion(e) {
 function attachMotionListener() {
   if (motionState.attached || typeof DeviceMotionEvent === "undefined") return false;
 
+  motionState.eventSeen = false;
   window.addEventListener("devicemotion", handleDeviceMotion, { passive: true });
   motionState.attached = true;
   motionState.permission = "granted";
   resetMotionFilters();
+
+  // A granted permission is not enough on iOS 26 embedded/iframe contexts:
+  // verify that actual motion samples arrive. If they do not, surface a clear
+  // Safari fallback instead of silently pretending motion is enabled.
+  setTimeout(() => {
+    if (!isIOS || motionState.eventSeen || document.hidden) return;
+
+    if (motionEnable) {
+      motionEnable.hidden = false;
+      motionEnable.disabled = false;
+      motionEnable.dataset.state = "error";
+      motionEnable.textContent = "Safariで開いて再試行";
+    }
+    if (hintText) {
+      hintText.textContent = "モーションデータが届いていません";
+      hint.classList.remove("is-hidden");
+    }
+  }, 2400);
+
   return true;
 }
 
@@ -1830,10 +1869,11 @@ async function ensureMotionPermission() {
     motionState.permission = "unsupported";
     return false;
   }
-  if (motionState.attached) return true;
+  if (motionState.attached && motionState.eventSeen) return true;
   if (motionState.permission === "requesting") return false;
-  if (motionState.permission === "denied") return false;
 
+  // Allow a retry after a previous denial/failure. Safari may still return
+  // "denied", but the UI should not become permanently dead.
   motionState.permission = "requesting";
 
   try {
@@ -1842,8 +1882,14 @@ async function ensureMotionPermission() {
       const result = await DeviceMotionEvent.requestPermission();
       if (result !== "granted") {
         motionState.permission = "denied";
+        if (motionEnable) {
+          motionEnable.hidden = false;
+          motionEnable.disabled = false;
+          motionEnable.dataset.state = "error";
+          motionEnable.textContent = "モーションを再試行";
+        }
         if (hintText) {
-          hintText.textContent = "モーション未許可 / 指で水面をなぞれます";
+          hintText.textContent = "モーションが許可されませんでした";
           hint.classList.remove("is-hidden");
         }
         return false;
@@ -1852,21 +1898,63 @@ async function ensureMotionPermission() {
 
     const attached = attachMotionListener();
 
-    if (attached && isIOS && hintText) {
-      hintText.textContent = "iPhoneを揺らす / 指で水面をなぞる";
-      hint.classList.remove("is-hidden");
-      setTimeout(() => hint.classList.add("is-hidden"), 2200);
+    if (attached && isIOS) {
+      if (motionEnable) {
+        motionEnable.hidden = false;
+        motionEnable.disabled = true;
+        motionEnable.dataset.state = "";
+        motionEnable.textContent = "センサー待機中…";
+      }
+      if (hintText) {
+        hintText.textContent = "モーション入力を確認中…";
+        hint.classList.remove("is-hidden");
+      }
     }
 
     return attached;
   } catch {
     motionState.permission = "denied";
+    if (motionEnable) {
+      motionEnable.hidden = false;
+      motionEnable.disabled = false;
+      motionEnable.dataset.state = "error";
+      motionEnable.textContent = "モーションを再試行";
+    }
     if (hintText) {
-      hintText.textContent = "モーションを有効化できません / 指操作は使えます";
+      hintText.textContent = "モーションを有効化できません";
       hint.classList.remove("is-hidden");
     }
     return false;
   }
+}
+
+if (isIOS && motionEnable) {
+  if (typeof DeviceMotionEvent === "undefined") {
+    motionEnable.hidden = false;
+    motionEnable.disabled = true;
+    motionEnable.dataset.state = "error";
+    motionEnable.textContent = "このブラウザはモーション非対応";
+  } else if (typeof DeviceMotionEvent.requestPermission === "function") {
+    motionEnable.hidden = false;
+    motionEnable.disabled = false;
+  }
+
+  motionEnable.addEventListener("click", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (typeof DeviceMotionEvent === "undefined") return;
+
+    motionEnable.hidden = false;
+    motionEnable.disabled = true;
+    motionEnable.dataset.state = "";
+    motionEnable.textContent = "許可を確認中…";
+
+    const ok = await ensureMotionPermission();
+    if (!ok && motionState.permission !== "requesting") {
+      motionEnable.disabled = false;
+    }
+  });
 }
 
 // Browsers that do not gate motion behind an explicit permission prompt can
@@ -1969,6 +2057,7 @@ function endInteraction(id) {
 }
 
 stage.addEventListener("pointerdown", (e) => {
+  if (motionEnable && e.target === motionEnable) return;
   if (isIOS && e.pointerType !== "mouse") return;
 
   const p = pointerPosition(e);
@@ -2025,7 +2114,7 @@ stage.addEventListener("pointerleave", (e) => {
 
 if (isIOS) {
   stage.addEventListener("touchstart", (e) => {
-    if (motionState.permission === "idle") void ensureMotionPermission();
+    if (motionEnable && e.target === motionEnable) return;
 
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
@@ -2036,6 +2125,8 @@ if (isIOS) {
   }, { passive: false });
 
   stage.addEventListener("touchmove", (e) => {
+    if (motionEnable && e.target === motionEnable) return;
+
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
       const p = touchPosition(touch);
@@ -2045,6 +2136,8 @@ if (isIOS) {
   }, { passive: false });
 
   const endTouch = (e) => {
+    if (motionEnable && e.target === motionEnable) return;
+
     for (let i = 0; i < e.changedTouches.length; i++) {
       endInteraction(`touch-${e.changedTouches[i].identifier}`);
     }
