@@ -85,6 +85,7 @@ uniform vec2 uWaveTexel;
 uniform vec2 uFlowTexel;
 uniform float uTime;
 uniform vec2 uResolution;
+uniform vec4 uSlosh;
 
 float saturate(float x) {
   return clamp(x, 0.0, 1.0);
@@ -198,6 +199,25 @@ void main() {
   vec2 flowWarp = clamp(flow, vec2(-1.1), vec2(1.1)) * 0.0038;
   p += flowWarp;
 
+  // iPhone motion uses a dedicated long-wavelength slosh field instead of
+  // feeding the local ripple simulation. This makes the entire pond rock as
+  // one body of water and keeps touch/tap rings visually distinct.
+  vec2 sloshDir = uSlosh.xy;
+  float sloshDirLen = length(sloshDir);
+  sloshDir = sloshDirLen > 0.001 ? sloshDir / sloshDirLen : vec2(1.0, 0.0);
+  vec2 sloshOrtho = vec2(-sloshDir.y, sloshDir.x);
+  float sloshEnergy = clamp(uSlosh.z, 0.0, 1.0);
+  float sloshPhase = uSlosh.w;
+  float sloshAlong = dot(p, sloshDir);
+  float sloshAcross = dot(p, sloshOrtho);
+  float sloshA = cos(sloshAlong * 4.2 + sloshPhase);
+  float sloshB = cos(sloshAlong * 2.35 - sloshAcross * 1.7 - sloshPhase * 0.72);
+  float sloshC = sin(sloshAcross * 3.1 + sloshPhase * 0.46);
+  vec2 sloshSlope =
+      sloshDir * (sloshA * 0.0165 + sloshB * 0.0080)
+    + sloshOrtho * (sloshC * 0.0052 + sloshB * 0.0028);
+  sloshSlope *= sloshEnergy;
+
   vec2 fineSlope = vec2(0.0);
   fineSlope += waveSlope(p, vec2(1.0, 0.24), 41.0, 0.78, 0.0066, uTime);
   fineSlope += waveSlope(p, vec2(-0.37, 1.0), 57.0, -0.57, 0.0053, uTime);
@@ -209,10 +229,10 @@ void main() {
   // energy-gated portion of the interactive slope affect the normal. This restores
   // physically readable moving highlights without reintroducing broad contour bands.
   vec2 interactiveReflectSlope = simSlope * (0.24 + waveEnergy * 0.16);
-  vec2 slope = fineSlope + interactiveReflectSlope;
+  vec2 slope = fineSlope + interactiveReflectSlope + sloshSlope;
   float slopeMagnitude = length(slope);
-  if (slopeMagnitude > 0.042) {
-    slope *= 0.042 / slopeMagnitude;
+  if (slopeMagnitude > 0.056) {
+    slope *= 0.056 / slopeMagnitude;
   }
   vec3 normal = normalize(vec3(-slope.x, slope.y, 1.0));
 
@@ -224,7 +244,8 @@ void main() {
 
   vec2 fineOffset = vec2(-fineSlope.x, fineSlope.y) * 0.067;
   vec2 rippleOffset = vec2(-simSlope.x, simSlope.y) * 0.170;
-  vec2 refractOffset = fineOffset + rippleOffset + flow * 0.00010;
+  vec2 sloshOffset = vec2(-sloshSlope.x, sloshSlope.y) * 0.110;
+  vec2 refractOffset = fineOffset + rippleOffset + sloshOffset + flow * 0.00010;
   float refractMagnitude = length(refractOffset);
   if (refractMagnitude > 0.0088) {
     refractOffset *= 0.0088 / refractMagnitude;
@@ -264,7 +285,7 @@ void main() {
   transmitted *= mix(vec3(1.0), vec3(0.965, 0.982, 0.988), depthShade);
   transmitted += vec3(0.003, 0.010, 0.012) * depthShade;
 
-  float causticSlope = length(fineSlope + simSlope * 0.24);
+  float causticSlope = length(fineSlope + simSlope * 0.24 + sloshSlope * 0.62);
   float causticFocus = smoothstep(0.014, 0.052, causticSlope)
     * (1.0 - smoothstep(0.052, 0.082, causticSlope));
   float caustic = causticFocus * 0.0088;
@@ -273,7 +294,7 @@ void main() {
     uTime
   );
   transmitted += vec3(0.82, 0.88, 0.70) * caustic;
-  float causticActivity = smoothstep(0.004, 0.028, length(fineSlope + simSlope * 0.20));
+  float causticActivity = smoothstep(0.004, 0.034, length(fineSlope + simSlope * 0.20 + sloshSlope * 0.55));
   float depthCausticFade = mix(1.0, 0.72, smoothstep(0.48, 0.61, bedDepth));
   transmitted += vec3(0.92, 0.86, 0.64)
     * floorShimmer
@@ -368,6 +389,7 @@ const uniforms = {
   flowTexel: gl.getUniformLocation(program, "uFlowTexel"),
   time: gl.getUniformLocation(program, "uTime"),
   resolution: gl.getUniformLocation(program, "uResolution"),
+  slosh: gl.getUniformLocation(program, "uSlosh"),
 };
 
 const floatLinear = !!gl.getExtension("OES_texture_float_linear");
@@ -697,6 +719,26 @@ function injectFlow(nx, ny, vx, vy, strength = 1) {
 
       flowX[i] += (vx * 0.82 - dy * spin) * falloff * strength;
       flowY[i] += (vy * 0.82 + dx * spin) * falloff * strength;
+    }
+  }
+}
+
+function injectGlobalFlow(vx, vy, strength = 1) {
+  const addX = clamp(vx * 0.030 * strength, -0.030, 0.030);
+  const addY = clamp(vy * 0.030 * strength, -0.030, 0.030);
+
+  for (let y = 1; y < flowH - 1; y++) {
+    const ny = y / (flowH - 1);
+    const edgeY = Math.sin(Math.PI * ny);
+
+    for (let x = 1; x < flowW - 1; x++) {
+      const nx = x / (flowW - 1);
+      const edgeX = Math.sin(Math.PI * nx);
+      const edgeFade = Math.pow(Math.max(0, edgeX * edgeY), 0.35);
+      const i = y * flowW + x;
+
+      flowX[i] += addX * edgeFade;
+      flowY[i] += addY * edgeFade;
     }
   }
 }
@@ -1584,7 +1626,7 @@ if (isIOS && hintText) {
 if (isIOS) {
   stage.setAttribute(
     "aria-label",
-    "指で水面をかき混ぜたり、iPhoneを揺らして波紋を起こせるインタラクティブな池"
+    "指で局所的な波紋を起こしたり、iPhoneを揺らして水面全体を波打たせられるインタラクティブな池"
   );
 }
 
@@ -1601,8 +1643,11 @@ const motionState = {
   filteredZ: 0,
   lastMagnitude: 0,
   lastFlow: 0,
-  lastRipple: 0,
   phase: 0,
+  sloshEnergy: 0,
+  sloshDirX: 1,
+  sloshDirY: 0,
+  sloshPhase: 0,
 };
 
 function resetMotionFilters() {
@@ -1763,75 +1808,41 @@ function handleDeviceMotion(e) {
 
   const reducedScale = prefersReducedMotion ? 0.50 : 1.0;
 
-  // Phone movement displaces the whole body of water. Injecting the same
-  // directional current at three separated points reads as a broad slosh rather
-  // than a single artificial whirlpool, and floating leaves inherit the motion.
+  // Motion interaction is intentionally NOT injected into the local wave solver.
+  // It drives a separate long-wavelength surface mode, so shaking the phone makes
+  // the whole pond sway instead of producing tap-like circular ripples.
+  const targetEnergy = clamp(
+    (0.10 + shakeEnergy * 0.92) * reducedScale,
+    0,
+    1
+  );
+  motionState.sloshEnergy = Math.max(
+    motionState.sloshEnergy,
+    targetEnergy
+  );
+
+  const dirBlend = clamp(0.16 + shakeEnergy * 0.30, 0.16, 0.52);
+  motionState.sloshDirX = mix(motionState.sloshDirX, -dirX, dirBlend);
+  motionState.sloshDirY = mix(motionState.sloshDirY, -dirY, dirBlend);
+  const sloshDirLen = Math.hypot(motionState.sloshDirX, motionState.sloshDirY);
+  if (sloshDirLen > 0.001) {
+    motionState.sloshDirX /= sloshDirLen;
+    motionState.sloshDirY /= sloshDirLen;
+  }
+
+  // A subtle whole-field current couples floating leaves and koi to the same
+  // motion without creating a local whirlpool or ring source.
   if (now - motionState.lastFlow > 32) {
-    const flowSpeed = (0.28 + shakeEnergy * 0.78) * reducedScale;
-    const flowVX = clamp(-dirX * flowSpeed, -1.2, 1.2);
-    const flowVY = clamp(-dirY * flowSpeed, -1.2, 1.2);
-    const flowStrength = 0.48 + shakeEnergy * 0.62;
-
-    injectFlow(0.50, 0.50, flowVX, flowVY, flowStrength);
-
-    const sideX = dirY * 0.22;
-    const sideY = -dirX * 0.22;
-    injectFlow(
-      clamp(0.50 + sideX, 0.10, 0.90),
-      clamp(0.50 + sideY, 0.10, 0.90),
-      flowVX,
-      flowVY,
-      flowStrength * 0.72
+    const flowSpeed = (0.18 + shakeEnergy * 0.52) * reducedScale;
+    injectGlobalFlow(
+      -dirX * flowSpeed,
+      -dirY * flowSpeed,
+      0.70 + shakeEnergy * 0.55
     );
-    injectFlow(
-      clamp(0.50 - sideX, 0.10, 0.90),
-      clamp(0.50 - sideY, 0.10, 0.90),
-      flowVX,
-      flowVY,
-      flowStrength * 0.72
-    );
-
     motionState.lastFlow = now;
   }
 
-  if (shakeEnergy > 0.14) {
-    const interval = mix(126, 58, clamp(shakeEnergy, 0, 1));
-
-    if (now - motionState.lastRipple > interval) {
-      // Golden-angle phase spacing avoids repeated ripples at the exact same
-      // positions while keeping the response deterministic and stable.
-      motionState.phase += 2.399963229728653;
-      const lateral = Math.sin(motionState.phase) * 0.16;
-      const crossX = -dirY * lateral;
-      const crossY = dirX * lateral;
-
-      const leadX = clamp(0.50 - dirX * 0.23 + crossX, 0.08, 0.92);
-      const leadY = clamp(0.50 - dirY * 0.23 + crossY, 0.08, 0.92);
-      const trailX = clamp(0.50 + dirX * 0.23 - crossX * 0.72, 0.08, 0.92);
-      const trailY = clamp(0.50 + dirY * 0.23 - crossY * 0.72, 0.08, 0.92);
-
-      const waveAmount = clamp(
-        (0.0030 + shakeEnergy * 0.0135) * reducedScale,
-        0.0022,
-        0.0175
-      );
-      const radius = 0.030 + clamp(shakeEnergy, 0, 1) * 0.018;
-
-      // Opposing pulses mimic the surface sloshing against inertia instead of
-      // spawning identical rings everywhere.
-      injectWave(leadX, leadY, -waveAmount, radius);
-      injectWave(trailX, trailY, waveAmount * 0.72, radius * 1.14);
-
-      if (shakeEnergy > 0.78) {
-        const burstX = clamp(0.50 + Math.cos(motionState.phase) * 0.13, 0.12, 0.88);
-        const burstY = clamp(0.50 + Math.sin(motionState.phase) * 0.13, 0.12, 0.88);
-        injectWave(burstX, burstY, -waveAmount * 0.46, radius * 0.68);
-      }
-
-      motionState.lastRipple = now;
-      revealInteraction();
-    }
-  }
+  revealInteraction();
 }
 
 function attachMotionListener() {
@@ -2153,12 +2164,26 @@ let waveAccumulator = 0;
 const WAVE_STEP = 1 / 60;
 let nextAmbientRipple = lastTime + 900;
 
+function updateMotionSlosh(dt) {
+  if (motionState.sloshEnergy <= 0.0001) {
+    motionState.sloshEnergy = 0;
+    return;
+  }
+
+  // Slow oscillation with a natural decay: after a shake the pond continues
+  // rocking briefly, like water in a shallow basin settling under inertia.
+  const phaseSpeed = 2.35 + motionState.sloshEnergy * 1.45;
+  motionState.sloshPhase += dt * phaseSpeed;
+  motionState.sloshEnergy *= Math.exp(-dt * 1.18);
+}
+
 function render(now) {
   resize();
 
   const dt = clamp((now - lastTime) / 1000, 1 / 120, 1 / 30);
   lastTime = now;
 
+  updateMotionSlosh(dt);
   stepFlow(dt);
 
   // Run the wave solver at a fixed rate so propagation and damping are
@@ -2208,6 +2233,13 @@ function render(now) {
   gl.uniform2f(uniforms.flowTexel, 1 / flowW, 1 / flowH);
   gl.uniform1f(uniforms.time, now / 1000);
   gl.uniform2f(uniforms.resolution, width, height);
+  gl.uniform4f(
+    uniforms.slosh,
+    motionState.sloshDirX,
+    motionState.sloshDirY,
+    motionState.sloshEnergy,
+    motionState.sloshPhase
+  );
 
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 
