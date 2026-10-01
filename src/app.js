@@ -1576,6 +1576,310 @@ const isIOS =
   /iPad|iPhone|iPod/.test(navigator.userAgent) ||
   (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
+const hintText = hint?.querySelector("span");
+if (isIOS && hintText) {
+  hintText.textContent = "水面をタップしてモーション許可 → iPhoneを揺らす";
+}
+if (isIOS) {
+  stage.setAttribute(
+    "aria-label",
+    "指で水面をかき混ぜたり、iPhoneを揺らして波紋を起こせるインタラクティブな池"
+  );
+}
+
+const motionState = {
+  permission: typeof DeviceMotionEvent === "undefined" ? "unsupported" : "idle",
+  attached: false,
+  gravityReady: false,
+  gravityX: 0,
+  gravityY: 0,
+  gravityZ: 0,
+  filteredX: 0,
+  filteredY: 0,
+  filteredZ: 0,
+  lastMagnitude: 0,
+  lastFlow: 0,
+  lastRipple: 0,
+  phase: 0,
+};
+
+function resetMotionFilters() {
+  motionState.gravityReady = false;
+  motionState.filteredX = 0;
+  motionState.filteredY = 0;
+  motionState.filteredZ = 0;
+  motionState.lastMagnitude = 0;
+}
+
+function motionAxesToScreen(x, y) {
+  let angle = 0;
+
+  if (screen.orientation && Number.isFinite(screen.orientation.angle)) {
+    angle = screen.orientation.angle;
+  } else if (typeof window.orientation === "number") {
+    angle = window.orientation;
+  }
+
+  angle = ((angle % 360) + 360) % 360;
+
+  let sx = x;
+  let sy = y;
+
+  if (angle === 90) {
+    sx = -y;
+    sy = x;
+  } else if (angle === 180) {
+    sx = -x;
+    sy = -y;
+  } else if (angle === 270) {
+    sx = y;
+    sy = -x;
+  }
+
+  // Device coordinates use +Y toward the top of the phone, while screen-space
+  // simulation coordinates use +Y downward.
+  return { x: sx, y: -sy };
+}
+
+function linearAccelerationFromMotion(e) {
+  const direct = e.acceleration;
+  if (
+    direct &&
+    [direct.x, direct.y, direct.z].some((v) => Number.isFinite(v))
+  ) {
+    return {
+      x: Number.isFinite(direct.x) ? direct.x : 0,
+      y: Number.isFinite(direct.y) ? direct.y : 0,
+      z: Number.isFinite(direct.z) ? direct.z : 0,
+    };
+  }
+
+  // Some iOS/WebView variants expose only accelerationIncludingGravity.
+  // Track gravity with a slow low-pass filter and use the high-pass remainder
+  // so a static phone does not continuously disturb the pond.
+  const withGravity = e.accelerationIncludingGravity;
+  if (!withGravity) return null;
+
+  const gx = Number.isFinite(withGravity.x) ? withGravity.x : 0;
+  const gy = Number.isFinite(withGravity.y) ? withGravity.y : 0;
+  const gz = Number.isFinite(withGravity.z) ? withGravity.z : 0;
+
+  if (!motionState.gravityReady) {
+    motionState.gravityReady = true;
+    motionState.gravityX = gx;
+    motionState.gravityY = gy;
+    motionState.gravityZ = gz;
+    return { x: 0, y: 0, z: 0 };
+  }
+
+  const gravityResponse = 0.10;
+  motionState.gravityX += (gx - motionState.gravityX) * gravityResponse;
+  motionState.gravityY += (gy - motionState.gravityY) * gravityResponse;
+  motionState.gravityZ += (gz - motionState.gravityZ) * gravityResponse;
+
+  return {
+    x: gx - motionState.gravityX,
+    y: gy - motionState.gravityY,
+    z: gz - motionState.gravityZ,
+  };
+}
+
+function handleDeviceMotion(e) {
+  if (document.hidden) return;
+
+  const acceleration = linearAccelerationFromMotion(e);
+  if (!acceleration) return;
+
+  const screenAxes = motionAxesToScreen(acceleration.x, acceleration.y);
+  const smoothing = 0.34;
+
+  motionState.filteredX = mix(motionState.filteredX, screenAxes.x, smoothing);
+  motionState.filteredY = mix(motionState.filteredY, screenAxes.y, smoothing);
+  motionState.filteredZ = mix(motionState.filteredZ, acceleration.z, smoothing);
+
+  const magnitude = Math.hypot(
+    motionState.filteredX,
+    motionState.filteredY,
+    motionState.filteredZ
+  );
+  const jerk = Math.abs(magnitude - motionState.lastMagnitude);
+  motionState.lastMagnitude = magnitude;
+
+  const rotation = e.rotationRate;
+  const rotationSpeed = rotation
+    ? Math.hypot(
+        Number.isFinite(rotation.alpha) ? rotation.alpha : 0,
+        Number.isFinite(rotation.beta) ? rotation.beta : 0,
+        Number.isFinite(rotation.gamma) ? rotation.gamma : 0
+      )
+    : 0;
+
+  // Combine translation, abrupt change (jerk), and rotational shake. The
+  // dead-zone prevents normal hand tremor from keeping the water permanently rough.
+  const translationalEnergy = clamp((magnitude - 0.55) / 5.8, 0, 1.15);
+  const jerkEnergy = clamp((jerk - 0.10) / 3.8, 0, 1);
+  const rotationEnergy = clamp((rotationSpeed - 18) / 150, 0, 1);
+  const shakeEnergy = clamp(
+    translationalEnergy + jerkEnergy * 0.30 + rotationEnergy * 0.22,
+    0,
+    1.25
+  );
+
+  if (shakeEnergy < 0.045) return;
+
+  const now = performance.now();
+  const planar = Math.hypot(motionState.filteredX, motionState.filteredY);
+
+  let dirX;
+  let dirY;
+
+  if (planar > 0.12) {
+    dirX = motionState.filteredX / planar;
+    dirY = motionState.filteredY / planar;
+  } else {
+    motionState.phase += 0.91;
+    dirX = Math.cos(motionState.phase);
+    dirY = Math.sin(motionState.phase);
+  }
+
+  const reducedScale = prefersReducedMotion ? 0.50 : 1.0;
+
+  // Phone movement displaces the whole body of water. Injecting the same
+  // directional current at three separated points reads as a broad slosh rather
+  // than a single artificial whirlpool, and floating leaves inherit the motion.
+  if (now - motionState.lastFlow > 32) {
+    const flowSpeed = (0.28 + shakeEnergy * 0.78) * reducedScale;
+    const flowVX = clamp(-dirX * flowSpeed, -1.2, 1.2);
+    const flowVY = clamp(-dirY * flowSpeed, -1.2, 1.2);
+    const flowStrength = 0.48 + shakeEnergy * 0.62;
+
+    injectFlow(0.50, 0.50, flowVX, flowVY, flowStrength);
+
+    const sideX = dirY * 0.22;
+    const sideY = -dirX * 0.22;
+    injectFlow(
+      clamp(0.50 + sideX, 0.10, 0.90),
+      clamp(0.50 + sideY, 0.10, 0.90),
+      flowVX,
+      flowVY,
+      flowStrength * 0.72
+    );
+    injectFlow(
+      clamp(0.50 - sideX, 0.10, 0.90),
+      clamp(0.50 - sideY, 0.10, 0.90),
+      flowVX,
+      flowVY,
+      flowStrength * 0.72
+    );
+
+    motionState.lastFlow = now;
+  }
+
+  if (shakeEnergy > 0.14) {
+    const interval = mix(126, 58, clamp(shakeEnergy, 0, 1));
+
+    if (now - motionState.lastRipple > interval) {
+      // Golden-angle phase spacing avoids repeated ripples at the exact same
+      // positions while keeping the response deterministic and stable.
+      motionState.phase += 2.399963229728653;
+      const lateral = Math.sin(motionState.phase) * 0.16;
+      const crossX = -dirY * lateral;
+      const crossY = dirX * lateral;
+
+      const leadX = clamp(0.50 - dirX * 0.23 + crossX, 0.08, 0.92);
+      const leadY = clamp(0.50 - dirY * 0.23 + crossY, 0.08, 0.92);
+      const trailX = clamp(0.50 + dirX * 0.23 - crossX * 0.72, 0.08, 0.92);
+      const trailY = clamp(0.50 + dirY * 0.23 - crossY * 0.72, 0.08, 0.92);
+
+      const waveAmount = clamp(
+        (0.0030 + shakeEnergy * 0.0135) * reducedScale,
+        0.0022,
+        0.0175
+      );
+      const radius = 0.030 + clamp(shakeEnergy, 0, 1) * 0.018;
+
+      // Opposing pulses mimic the surface sloshing against inertia instead of
+      // spawning identical rings everywhere.
+      injectWave(leadX, leadY, -waveAmount, radius);
+      injectWave(trailX, trailY, waveAmount * 0.72, radius * 1.14);
+
+      if (shakeEnergy > 0.78) {
+        const burstX = clamp(0.50 + Math.cos(motionState.phase) * 0.13, 0.12, 0.88);
+        const burstY = clamp(0.50 + Math.sin(motionState.phase) * 0.13, 0.12, 0.88);
+        injectWave(burstX, burstY, -waveAmount * 0.46, radius * 0.68);
+      }
+
+      motionState.lastRipple = now;
+      revealInteraction();
+    }
+  }
+}
+
+function attachMotionListener() {
+  if (motionState.attached || typeof DeviceMotionEvent === "undefined") return false;
+
+  window.addEventListener("devicemotion", handleDeviceMotion, { passive: true });
+  motionState.attached = true;
+  motionState.permission = "granted";
+  resetMotionFilters();
+  return true;
+}
+
+async function ensureMotionPermission() {
+  if (typeof DeviceMotionEvent === "undefined") {
+    motionState.permission = "unsupported";
+    return false;
+  }
+  if (motionState.attached) return true;
+  if (motionState.permission === "requesting") return false;
+  if (motionState.permission === "denied") return false;
+
+  motionState.permission = "requesting";
+
+  try {
+    if (typeof DeviceMotionEvent.requestPermission === "function") {
+      // iOS requires this call to originate from a user gesture.
+      const result = await DeviceMotionEvent.requestPermission();
+      if (result !== "granted") {
+        motionState.permission = "denied";
+        if (hintText) {
+          hintText.textContent = "モーション未許可 / 指で水面をなぞれます";
+          hint.classList.remove("is-hidden");
+        }
+        return false;
+      }
+    }
+
+    const attached = attachMotionListener();
+
+    if (attached && isIOS && hintText) {
+      hintText.textContent = "iPhoneを揺らす / 指で水面をなぞる";
+      hint.classList.remove("is-hidden");
+      setTimeout(() => hint.classList.add("is-hidden"), 2200);
+    }
+
+    return attached;
+  } catch {
+    motionState.permission = "denied";
+    if (hintText) {
+      hintText.textContent = "モーションを有効化できません / 指操作は使えます";
+      hint.classList.remove("is-hidden");
+    }
+    return false;
+  }
+}
+
+// Browsers that do not gate motion behind an explicit permission prompt can
+// subscribe immediately. iOS waits until the first touch/pointer gesture below.
+if (
+  typeof DeviceMotionEvent !== "undefined" &&
+  typeof DeviceMotionEvent.requestPermission !== "function"
+) {
+  attachMotionListener();
+}
+
+addEventListener("orientationchange", resetMotionFilters, { passive: true });
+
 const pointers = new Map();
 let interacted = false;
 
@@ -1665,7 +1969,10 @@ function endInteraction(id) {
 }
 
 stage.addEventListener("pointerdown", (e) => {
-  if (isIOS && e.pointerType !== "mouse") return;
+  if (isIOS && e.pointerType !== "mouse") {
+    if (motionState.permission === "idle") void ensureMotionPermission();
+    return;
+  }
 
   const p = pointerPosition(e);
   try {
@@ -1721,6 +2028,8 @@ stage.addEventListener("pointerleave", (e) => {
 
 if (isIOS) {
   stage.addEventListener("touchstart", (e) => {
+    if (motionState.permission === "idle") void ensureMotionPermission();
+
     for (let i = 0; i < e.changedTouches.length; i++) {
       const touch = e.changedTouches[i];
       const p = touchPosition(touch);
@@ -1820,6 +2129,7 @@ addEventListener("resize", resize, { passive: true });
 document.addEventListener("visibilitychange", () => {
   lastTime = performance.now();
   waveAccumulator = 0;
+  resetMotionFilters();
 });
 
 resize();
