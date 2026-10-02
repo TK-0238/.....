@@ -1484,6 +1484,52 @@ const leafSprites = [
   }),
 ];
 
+function drawDeformedLeaf(ctx, leaf, time, strength = 1) {
+  const sprite = leaf.sprite;
+  const strips = 5;
+  const sourceW = sprite.width / strips;
+  const halfW = sprite.width * 0.5;
+  const halfH = sprite.height * 0.5;
+
+  for (let i = 0; i < strips; i++) {
+    const sx = i * sourceW;
+    const nx = ((i + 0.5) / strips) * 2 - 1;
+    const edge = Math.pow(Math.abs(nx), 1.45);
+
+    // Curl rises toward the blade edges; twist changes sign across the midrib.
+    // A tiny time-varying term gives the wet blade soft flex without looking
+    // like cloth or a flag.
+    const curlY = leaf.edgeLift * edge * 18 * strength;
+    const twistY = leaf.twist * nx * 9 * strength;
+    const flutterY =
+      Math.sin(time * 0.00115 + leaf.phase + nx * 2.1) *
+      leaf.flutter *
+      edge *
+      1.45 *
+      strength;
+
+    const yOffset = curlY + twistY + flutterY;
+    const compress =
+      1 - edge * Math.min(0.10, Math.abs(leaf.edgeLift) * 0.075) * strength;
+    const destH = sprite.height * compress;
+    const centerCompensation = (sprite.height - destH) * 0.5;
+
+    // Overlap strips slightly to avoid hairline seams on high-DPI Safari.
+    const overlap = 1.1;
+    ctx.drawImage(
+      sprite,
+      Math.max(0, sx - overlap),
+      0,
+      Math.min(sprite.width - Math.max(0, sx - overlap), sourceW + overlap * 2),
+      sprite.height,
+      -halfW + sx - overlap,
+      -halfH + yOffset + centerCompensation,
+      sourceW + overlap * 2,
+      destH
+    );
+  }
+}
+
 const leaves = [];
 const leafCount = prefersReducedMotion ? 8 : 13;
 
@@ -1503,6 +1549,10 @@ function spawnLeaf(index, edge = false) {
   leaf.alpha = 0.86 + random() * 0.09;
   leaf.curl = (random() - 0.5) * 0.10;
   leaf.tiltBias = (random() - 0.5) * 0.05;
+  leaf.edgeLift = (random() - 0.5) * 0.72;
+  leaf.twist = (random() - 0.5) * 0.55;
+  leaf.flutter = 0.25 + random() * 0.55;
+  leaf.wetness = 0.22 + random() * 0.68;
   leaf.nextWake = 0;
   leaves[index] = leaf;
 }
@@ -1577,18 +1627,18 @@ function drawLeaves(time, dt) {
     ctx.translate(x + g[0] * 105, y + 2.2 + g[1] * 90);
     ctx.rotate(leaf.angle + 0.045);
     ctx.scale(leaf.scale * 0.91, leaf.scale * (0.27 + Math.abs(leaf.curl) * 0.22));
-    ctx.globalAlpha = 0.070;
+    ctx.globalAlpha = 0.052 + (1 - leaf.wetness) * 0.022;
     ctx.filter = "brightness(0) blur(1.8px)";
-    ctx.drawImage(leaf.sprite, -96, -110);
+    drawDeformedLeaf(ctx, leaf, time, 0.58);
     ctx.restore();
 
     ctx.save();
     ctx.translate(x - g[0] * 42, y + 2.6 - g[1] * 38);
     ctx.rotate(leaf.angle + 0.035);
     ctx.scale(leaf.scale * 0.76, leaf.scale * (0.16 + Math.abs(leaf.curl) * 0.16));
-    ctx.globalAlpha = 0.035;
-    ctx.filter = "brightness(0.82) saturate(0.72) blur(1.6px)";
-    ctx.drawImage(leaf.sprite, -96, -110);
+    ctx.globalAlpha = 0.020 + leaf.wetness * 0.025;
+    ctx.filter = "brightness(0.80) saturate(0.68) blur(1.6px)";
+    drawDeformedLeaf(ctx, leaf, time, 0.42);
     ctx.restore();
 
     ctx.save();
@@ -1608,8 +1658,22 @@ function drawLeaves(time, dt) {
       waveRoll;
     ctx.scale(leaf.scale * lateralRoll, leaf.scale * perspective);
     ctx.globalAlpha = leaf.alpha;
-    ctx.filter = "brightness(" + leaf.tone + ") saturate(" + leaf.saturation + ")";
-    ctx.drawImage(leaf.sprite, -96, -110);
+    const wetTone = leaf.tone * (1 - leaf.wetness * 0.035);
+    const wetSat = leaf.saturation * (1 - leaf.wetness * 0.055);
+    ctx.filter =
+      "brightness(" + wetTone + ") saturate(" + wetSat + ") contrast(" +
+      (1.0 + leaf.wetness * 0.045) + ")";
+    drawDeformedLeaf(ctx, leaf, time, 1.0);
+
+    // Very low-energy wet sheen. It follows the same deformed geometry, so the
+    // highlight reads as a glossy blade rather than a second flat sprite.
+    ctx.globalCompositeOperation = "screen";
+    ctx.globalAlpha = (0.010 + leaf.wetness * 0.020) *
+      (0.72 + Math.min(0.28, flowSpeed * 0.16));
+    ctx.filter = "brightness(1.22) saturate(0.64) blur(0.18px)";
+    ctx.translate(-waveRoll * 10, -wavePitch * 8);
+    drawDeformedLeaf(ctx, leaf, time + 130, 0.92);
+    ctx.globalCompositeOperation = "source-over";
     ctx.filter = "none";
     ctx.restore();
   }
